@@ -1,0 +1,113 @@
+const Promise = require('bluebird');
+
+const {
+  isMatch,
+  takeWhile,
+} = require('lodash');
+
+const { NotFoundError } = require('@mimik/edge-ms-helper/error-helper');
+
+const {
+  generateObjectStoragePath,
+  generateObjectDataStoragePath,
+} = require('../util/objectUtil');
+
+const MODEL_NAME = 'object';
+
+const makeObjectModel = (context) => {
+  const { storage } = context;
+
+  const persistObject = (storagePath, object) => {
+    try {
+      const objectStr = JSON.stringify(object);
+      storage.setItemWithTag(storagePath, objectStr, MODEL_NAME);
+      return Promise.resolve(object);
+    } catch (error) {
+      return Promise.reject(new Error(`Error occured while persisting object: ${error}`));
+    }
+  };
+
+  const fetchObject = (storagePath) => {
+    try {
+      const object = storage.getItem(storagePath);
+
+      if (!object) {
+        return Promise.reject(new NotFoundError(`No such file: ${storagePath}`));
+      }
+
+      return Promise.resolve(JSON.parse(object));
+    } catch (error) {
+      return Promise.reject(new Error(`Error occured while fetching object: ${error}`));
+    }
+  };
+
+  const removeObjectAndData = (objectStoragePath, objectDataStoragePath) => {
+    try {
+      storage.removeItemWithTag(objectStoragePath, MODEL_NAME);
+      storage.deleteFileWithTag(objectDataStoragePath, MODEL_NAME);
+      return Promise.resolve();
+    } catch (error) {
+      return Promise.reject(new Error(`Error occured while deleting object: ${error}`));
+    }
+  };
+
+  const getObject = (objectType, objectId) => {
+    const storagePath = generateObjectStoragePath(objectType, objectId);
+    return fetchObject(storagePath);
+  };
+
+  const saveObject = (newObject) => {
+    const storagePath = generateObjectStoragePath(newObject.type, newObject.id);
+    return persistObject(storagePath, newObject);
+  };
+
+  const updateObject = (objectType, objectId, updateInfo) => {
+    const storagePath = generateObjectStoragePath(objectType, objectId);
+
+    return fetchObject(storagePath)
+      .then((origObject) => {
+        const updatedObject = { ...origObject, ...updateInfo };
+        return persistObject(storagePath, updatedObject);
+      });
+  };
+
+  const deleteObject = (objectType, objectId) => {
+    const objectStoragePath = generateObjectStoragePath(objectType, objectId);
+    const objectDataStoragePath = generateObjectDataStoragePath(objectType, objectId);
+
+    return fetchObject(objectStoragePath)
+      .then(() => removeObjectAndData(objectStoragePath, objectDataStoragePath));
+  };
+
+  const getAllObjects = (filters) => {
+    const objectList = [];
+    storage.eachItemByTag(
+      MODEL_NAME,
+      (key, value) => {
+        try {
+          const object = JSON.parse(value);
+          objectList.push(object);
+        } catch (error) {
+          // TODO Log this properly
+          console.log('===> getAllObjects error', error);
+        }
+      },
+    );
+
+    if (!filters) return Promise.resolve(objectList);
+
+    const result = takeWhile(objectList, (object) => isMatch(object, filters));
+    return Promise.resolve(result);
+  };
+
+
+  return {
+    getObject,
+    saveObject,
+    updateObject,
+    deleteObject,
+    getAllObjects,
+  };
+};
+
+module.exports = makeObjectModel;
