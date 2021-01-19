@@ -5,7 +5,10 @@ const {
   takeWhile,
 } = require('lodash');
 
-const { NotFoundError } = require('@mimik/edge-ms-helper/error-helper');
+const {
+  NotFoundError,
+  ParameterError,
+} = require('@mimik/edge-ms-helper/error-helper');
 
 const {
   generateObjectStoragePath,
@@ -58,7 +61,11 @@ const makeObjectModel = (context) => {
 
   const saveObject = (newObject) => {
     const storagePath = generateObjectStoragePath(newObject.type, newObject.id);
-    return persistObject(storagePath, newObject);
+    return fetchObject(storagePath)
+      .then((origObject) => {
+        if (origObject) throw new ParameterError('Object already exists with same objectId and objectType');
+        return persistObject(storagePath, newObject);
+      });
   };
 
   const updateObject = (objectType, objectId, updateInfo) => {

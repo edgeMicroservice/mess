@@ -1,5 +1,5 @@
 const Promise = require('bluebird');
-const find = require('lodash/find');
+const { map, find } = require('lodash');
 
 const ADDRESS_TYPE = {
   PUBLIC: 'public',
@@ -40,7 +40,7 @@ const makeMCMRequests = (context) => {
   const findByAccount = (accessToken) => clusterDiscovery(
     CLUSTER_DISCOVERY_TAG.ACCOUNT, accessToken,
   )
-    .then((data) => data.nodes.map((node) => populateUrl(node)));
+    .then((data) => map(data.nodes, (node) => populateUrl(node)));
 
   return {
     findByAccount,

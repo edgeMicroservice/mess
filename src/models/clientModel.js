@@ -1,19 +1,17 @@
 const Promise = require('bluebird');
 
-const MODEL_NAME = 'client';
 const TOKEN_LOCATION = 'token';
 
 const makeClientModel = (context) => {
   const { storage } = context;
 
   const saveClientToken = (accessToken, expiresAt) => {
-    storage.setItemWithTag(
+    storage.setItem(
       TOKEN_LOCATION,
       JSON.stringify({
         accessToken,
         expiresAt,
       }),
-      MODEL_NAME,
     );
     return Promise.resolve();
   };
@@ -27,7 +25,7 @@ const makeClientModel = (context) => {
   };
 
   const deleteClientToken = () => {
-    storage.setItemWithTag(TOKEN_LOCATION, '', MODEL_NAME);
+    storage.setItem(TOKEN_LOCATION, '');
     return Promise.resolve();
   };
 
