@@ -1,16 +1,16 @@
 const makeObjectPropagationHelper = require('../lib/objectPropagationHelper');
 const makeObjectModel = require('../models/objectModel');
 
+const { objectServiceRoles } = require('../util/objectUtil');
+
 const makeObjectProcessor = (context) => {
   const createObject = (newObject) => {
-    const {
-      notifyNewObjectDestinations,
-    } = makeObjectPropagationHelper(context);
+    const objectToSave = newObject;
+    objectToSave.serviceRole = objectServiceRoles.ORIGIN;
 
-    const { saveObject } = makeObjectModel(context);
-
-    return saveObject(newObject)
-      .then((persistedObject) => notifyNewObjectDestinations(persistedObject)
+    return makeObjectModel(context).saveObject(newObject)
+      .then((persistedObject) => makeObjectPropagationHelper(context)
+        .notifyNewObjectDestinations(persistedObject)
         .then(() => persistedObject));
   };
 
@@ -60,9 +60,14 @@ const makeObjectProcessor = (context) => {
     const objectModel = makeObjectModel(context);
 
     return objectModel.getObject(objectType, objectId)
-      .then((originalObject) => objectModel.deleteObject(objectType, objectId)
-        .then(() => makeObjectPropagationHelper(context)
-          .notifyRemovedObjectDestinations(originalObject)));
+      .then((originalObject) => {
+        if (originalObject.serviceRole !== objectServiceRoles.ORIGIN) {
+          throw new Error('Object can only be deleted at origin');
+        }
+        return objectModel.deleteObject(objectType, objectId)
+          .then(() => makeObjectPropagationHelper(context)
+            .notifyRemovedObjectDestinations(originalObject));
+      });
   };
 
   return {

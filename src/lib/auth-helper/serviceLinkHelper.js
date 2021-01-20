@@ -1,7 +1,7 @@
 const find = require('lodash/find');
 const Base64 = require('Base64');
 
-const makeMCMRequests = require('../../external/mCMRequests');
+const makeMDSRequests = require('../../external/mDSRequests');
 const { extractFromServiceType } = require('../../util/serviceNameHelper');
 
 const ADDRESS_TYPE = {
@@ -56,7 +56,7 @@ const getEdgeServiceLinkByNodeId = (nodeId, serviceType, edgeAccessToken, ctx) =
     return updatedLink;
   };
 
-  return makeMCMRequests(ctx)
+  return makeMDSRequests(ctx)
     .findByAccount(edgeAccessToken)
     .then((nodes) => {
       const targetNode = find(nodes, (node) => node.id === nodeId);

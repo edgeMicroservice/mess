@@ -7,6 +7,8 @@ const {
 const makeObjectModel = require('../models/objectModel');
 const makeObjectCommonHelper = require('./commonHelper');
 
+const { objectUpdateTypes } = require('../util/objectUtil');
+
 const makeObjectValidationHelper = (context) => {
   const { fetchNodes, getCurrentContextDetails } = makeObjectCommonHelper(context);
 
@@ -110,15 +112,17 @@ const makeObjectValidationHelper = (context) => {
             );
             return updatedObject;
           });
-      }));
+      }))
+    .then((object) => ({
+      updateType: objectUpdateTypes.METADATA_UPDATED,
+      object,
+    }));
 
   const validateAndPopulateObjectUpdateInCluster = (objectType, objectId, updateInfo) => Promise.resolve()
     .then(() => {
-      const deleteAtAdditionalPropertiesError = 'Cannot declare other properties while updating deletedAt/deletedBy';
-      const receivedAtAdditionalPropertiesError = 'Cannot declare other properties while updating receivedAt/receivedBy';
-
-      const deletedAtAnddeletedByDontCoexistError = 'Cannot declare deletedAt and deletedBy individually, both should be provided together';
-      const receivedAtAndreceivedByDontCoexistError = 'Cannot declare receivedAt and receivedBy separately, both should be provided together';
+      const deletedByAdditionalPropertiesError = 'Cannot declare other properties while updating deletedBy';
+      const receivedByAdditionalPropertiesError = 'Cannot declare other properties while updating receivedBy';
+      const isDataUpdatedAdditionalPropertiesError = 'Cannot declare other properties while updating isDataUpdated';
 
       const versionBeingEmptyStringError = 'Property \'version\' cannot be an empty string';
 
@@ -128,28 +132,19 @@ const makeObjectValidationHelper = (context) => {
       const errors = [];
 
       const {
-        deletedAt,
         deletedBy,
-        receivedAt,
         receivedBy,
+        isDataUpdated,
         version,
         destinations,
       } = updateInfo;
 
       const totalUpdateInfoProps = keys(updateInfo).length;
 
-      if ((deletedAt || deletedBy) && !(deletedAt && deletedBy)) errors.push(deletedAtAnddeletedByDontCoexistError);
-      if ((receivedAt || receivedBy) && !(receivedAt && receivedBy)) errors.push(receivedAtAndreceivedByDontCoexistError);
-
-      if (deletedAt) {
-        if (deletedBy && totalUpdateInfoProps > 2) errors.push(deleteAtAdditionalPropertiesError);
-        else if (totalUpdateInfoProps > 1) errors.push(deleteAtAdditionalPropertiesError);
-      }
-
-      if (receivedAt) {
-        if (receivedBy && totalUpdateInfoProps > 2) errors.push(receivedAtAdditionalPropertiesError);
-        else if (totalUpdateInfoProps > 1) errors.push(receivedAtAdditionalPropertiesError);
-      }
+      if (totalUpdateInfoProps < 1) errors.push('No property is requested to be updated');
+      if (deletedBy && totalUpdateInfoProps > 1) errors.push(deletedByAdditionalPropertiesError);
+      if (receivedBy && totalUpdateInfoProps > 1) errors.push(receivedByAdditionalPropertiesError);
+      if (isDataUpdated && totalUpdateInfoProps > 1) errors.push(isDataUpdatedAdditionalPropertiesError);
 
       if (version && version === '') errors.push(versionBeingEmptyStringError);
 
@@ -168,64 +163,80 @@ const makeObjectValidationHelper = (context) => {
       if (errors.length > 1) throw new Error(`Update request cannot be validated: ${errors.join(', ')}`);
     })
     .then(() => makeObjectModel(context).getObject(objectType, objectId))
-    .then((currentObject) => getCurrentContextDetails()
-      .then(({ accountId, currentNodeId }) => {
-        if (currentObject.originId !== currentNodeId) throw new Error('Requested update(s) can only be made on originId nodeId');
-
-        const updatedObject = { ...currentObject };
+    .then((currentObject) => makeObjectCommonHelper(context)
+      .getCurrentContextDetails()
+      .then(({ currentNodeId }) => {
+        const preppedObject = { ...currentObject };
+        preppedObject.updatedAt = new Date();
 
         const {
-          deletedAt,
           deletedBy,
-          receivedAt,
           receivedBy,
+          isDataUpdated,
           version,
           destinations,
         } = updateInfo;
 
-        updatedObject.updatedAt = new Date();
+        if (receivedBy) {
+          if (preppedObject.originId !== currentNodeId) throw new Error('receivedBy update can only be made at origin mess');
 
-        if (deletedAt) {
-          let updatableFound = false;
-          updatedObject.destinations = map(updatedObject.desitnations, (destination) => {
-            if (destination.nodeId === deletedBy) {
-              updatableFound = true;
-              const updatedDestination = destination;
-              updatedDestination.deletedAt = deletedAt;
-              return updatedDestination;
-            }
-            return destination;
+          let foundDest = false;
+          preppedObject.destinations = map(preppedObject.destinations, (destination) => {
+            if (destination.nodeId !== receivedBy) return destination;
+
+            foundDest = true;
+            const updatedDest = destination;
+            updatedDest.receivedAt = new Date();
+            return updatedDest;
           });
-          if (!updatableFound) throw new Error(`Destination node cannot be found: ${deletedBy}`);
-          return updatedObject;
+
+          if (!foundDest) throw new Error('Node with id in receivedBy cannot be found in destinations');
+          return {
+            updateType: objectUpdateTypes.NODE_RECEIVED,
+            object: preppedObject,
+          };
         }
 
-        if (receivedAt) {
-          let updatableFound = false;
-          updatedObject.destinations = map(updatedObject.desitnations, (destination) => {
-            if (destination.nodeId === receivedBy) {
-              updatableFound = true;
-              const updatedDestination = destination;
-              updatedDestination.receivedAt = receivedAt;
-              return updatedDestination;
-            }
-            return destination;
+        if (deletedBy) {
+          if (preppedObject.originId !== currentNodeId) throw new Error('deletedBy update can only be made at origin mess');
+
+          let foundDest = false;
+          preppedObject.destinations = map(preppedObject.destinations, (destination) => {
+            if (destination.nodeId !== deletedBy) return destination;
+
+            foundDest = true;
+            const updatedDest = destination;
+            updatedDest.deletedAt = new Date();
+            return updatedDest;
           });
-          if (!updatableFound) throw new Error(`Destination node cannot be found: ${deletedBy}`);
-          return updatedObject;
+
+          if (!foundDest) throw new Error('Node with id in deletedBy cannot be found in destinations');
+          return {
+            updateType: objectUpdateTypes.NODE_DELETED,
+            object: preppedObject,
+          };
         }
 
-        if (version) updatedObject.version = version;
+        if (version || destinations) {
+          if (preppedObject.originId !== currentNodeId) throw new Error('version and destinations updates can only be made at origin mess');
 
-        if (!destinations) return updatedObject;
+          if (version) preppedObject.version = version;
+          if (destinations) preppedObject.destinations = destinations;
 
-        return fetchNodes(context)
-          .then((nodes) => {
-            updatedObject.destinations = validateAndFormatDestinations(
-              accountId, nodes, updatedObject.destinations,
-            );
-            return updatedObject;
-          });
+          return {
+            updateType: objectUpdateTypes.METADATA_UPDATED,
+            object: preppedObject,
+          };
+        }
+
+        if (isDataUpdated) {
+          return {
+            updateType: objectUpdateTypes.DATA_UPDATED,
+            object: preppedObject,
+          };
+        }
+
+        return false;
       }));
 
   return {

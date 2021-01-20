@@ -12,7 +12,7 @@ const createObject = (req, res) => {
     .validateAndPopulateNewObject(newObject)
     .then((validatedObject) => makeObjectProcessor(context)
       .createObject(validatedObject)
-      .then((data) => { response.sendResult({ data }, 202, res); })
+      .then((data) => { response.sendResult({ data }, 201, res); })
       .catch((error) => { response.sendError(error, res, 400); }));
 };
 

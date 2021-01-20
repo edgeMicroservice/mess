@@ -1,46 +1,19 @@
 const Promise = require('bluebird');
-const { merge, filter, some } = require('lodash');
+const { some } = require('lodash');
 
-const makeClientModel = require('./tokenSelector');
+
 const makeObjectCommonHelper = require('./commonHelper');
 
-const { extractFromServiceType } = require('../util/serviceNameHelper');
-const { rpAuth, getEdgeServiceLinkByNodeId } = require('./auth-helper');
+const makeMESSRequests = require('../external/messRequests');
 
 const makeObjectHelper = (context) => {
-  const requestMess = (nodeId, requestOptions) => makeClientModel(context).selectUserToken()
-    .then((accessToken) => {
-      const { serviceType } = context.info;
-      const { serviceName } = extractFromServiceType(serviceType);
-
-      return getEdgeServiceLinkByNodeId(nodeId, serviceType, accessToken, context)
-        .then((serviceLink) => {
-          const updatedRequestOptions = merge(requestOptions, serviceLink);
-          updatedRequestOptions.url = `${updatedRequestOptions.url}${requestOptions.endpoint}`;
-
-          return rpAuth(serviceName, updatedRequestOptions, context);
-        });
-    });
-
   const sendCreationRequest = (nodeId, object) => makeObjectCommonHelper()
     .getCurrentContextDetails()
     .then(({ currentNodeId }) => {
       if (nodeId === currentNodeId) return Promise.resolve();
 
-      const requestOptions = {
-        endpoint: '/cluster/objects',
-        method: 'POST',
-        body: {
-          id: object.id,
-          type: object.type,
-          version: object.version,
-          destinations: filter(object.destinations, (dest) => dest.nodeId === nodeId),
-          originId: object.originId,
-          createdAt: object.createdAt,
-        },
-      };
-
-      return requestMess(nodeId, requestOptions)
+      return makeMESSRequests(context)
+        .createObjectInCluster(nodeId, object)
         .catch((error) => {
           console.log('===> sendCreationRequest error', { nodeId, error });
           // TODO update logging
@@ -52,15 +25,8 @@ const makeObjectHelper = (context) => {
     .then(({ currentNodeId }) => {
       if (nodeId === currentNodeId) return Promise.resolve();
 
-      const requestOptions = {
-        endpoint: `/cluster/objects/${object.type}/${object.id}`,
-        method: 'PUT',
-        body: {
-          version: object.version,
-        },
-      };
-
-      return requestMess(nodeId, requestOptions)
+      return makeMESSRequests(context)
+        .updateObjectInCluster(nodeId, object)
         .catch((error) => {
           console.log('===> sendUpdationRequest error', { nodeId, error });
           // TODO update logging
@@ -72,12 +38,8 @@ const makeObjectHelper = (context) => {
     .then(({ currentNodeId }) => {
       if (nodeId === currentNodeId) return Promise.resolve();
 
-      const requestOptions = {
-        endpoint: `/cluster/objects/${object.type}/${object.id}`,
-        method: 'DELETE',
-      };
-
-      return requestMess(nodeId, requestOptions)
+      return makeMESSRequests(context)
+        .deleteObjectInCluster(nodeId, object)
         .catch((error) => {
           console.log('===> sendRemovalRequest error', { nodeId, error });
           // TODO update logging

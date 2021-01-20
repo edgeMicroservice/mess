@@ -11,7 +11,7 @@ const CLUSTER_DISCOVERY_TAG = {
   ACCOUNT: 'account',
 };
 
-const makeMCMRequests = (context) => {
+const makeMDSRequests = (context) => {
   const { edge } = context;
 
   const populateUrl = (node) => {
@@ -47,4 +47,4 @@ const makeMCMRequests = (context) => {
   };
 };
 
-module.exports = makeMCMRequests;
+module.exports = makeMDSRequests;
