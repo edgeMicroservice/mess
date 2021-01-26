@@ -11,7 +11,7 @@ const {
 } = require('@mimik/edge-ms-helper/error-helper');
 
 const {
-  generateObjectStoragePath,
+  generateObjectMetadataStoragePath,
   generateObjectDataStoragePath,
 } = require('../util/objectUtil');
 
@@ -55,12 +55,12 @@ const makeObjectModel = (context) => {
   };
 
   const getObject = (objectType, objectId) => {
-    const storagePath = generateObjectStoragePath(objectType, objectId);
+    const storagePath = generateObjectMetadataStoragePath(objectType, objectId);
     return fetchObject(storagePath);
   };
 
   const saveObject = (newObject) => {
-    const storagePath = generateObjectStoragePath(newObject.type, newObject.id);
+    const storagePath = generateObjectMetadataStoragePath(newObject.type, newObject.id);
     return fetchObject(storagePath)
       .then((origObject) => {
         if (origObject) throw new ParameterError('Object already exists with same objectId and objectType');
@@ -69,7 +69,7 @@ const makeObjectModel = (context) => {
   };
 
   const updateObject = (objectType, objectId, updateInfo) => {
-    const storagePath = generateObjectStoragePath(objectType, objectId);
+    const storagePath = generateObjectMetadataStoragePath(objectType, objectId);
 
     return fetchObject(storagePath)
       .then((origObject) => {
@@ -79,7 +79,7 @@ const makeObjectModel = (context) => {
   };
 
   const deleteObject = (objectType, objectId) => {
-    const objectStoragePath = generateObjectStoragePath(objectType, objectId);
+    const objectStoragePath = generateObjectMetadataStoragePath(objectType, objectId);
     const objectDataStoragePath = generateObjectDataStoragePath(objectType, objectId);
 
     return fetchObject(objectStoragePath)

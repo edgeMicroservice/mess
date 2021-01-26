@@ -7,7 +7,7 @@ const {
 const makeObjectModel = require('../models/objectModel');
 const makeObjectCommonHelper = require('./commonHelper');
 
-const { objectUpdateTypes } = require('../util/objectUtil');
+const { objectClusterUpdateTypes } = require('../util/objectUtil');
 
 const makeObjectValidationHelper = (context) => {
   const { fetchNodes, getCurrentContextDetails } = makeObjectCommonHelper(context);
@@ -42,15 +42,10 @@ const makeObjectValidationHelper = (context) => {
 
   const validateAndPopulateNewObject = (newObject) => {
     const updatedNewObject = {
-      hasData: false,
       updatedAt: new Date(),
       createdAt: new Date(),
       ...newObject,
     };
-
-    if (updatedNewObject.isValidated) {
-      return updatedNewObject;
-    }
 
     if (updatedNewObject.version === '') throw new Error('version cannot be an empty string');
 
@@ -112,17 +107,12 @@ const makeObjectValidationHelper = (context) => {
             );
             return updatedObject;
           });
-      }))
-    .then((object) => ({
-      updateType: objectUpdateTypes.METADATA_UPDATED,
-      object,
-    }));
+      }));
 
   const validateAndPopulateObjectUpdateInCluster = (objectType, objectId, updateInfo) => Promise.resolve()
     .then(() => {
-      const deletedByAdditionalPropertiesError = 'Cannot declare other properties while updating deletedBy';
-      const receivedByAdditionalPropertiesError = 'Cannot declare other properties while updating receivedBy';
       const isDataUpdatedAdditionalPropertiesError = 'Cannot declare other properties while updating isDataUpdated';
+      const receivalFailedByAdditionalPropertiesError = 'Cannot declare other properties while updating receivalFailedBy';
 
       const versionBeingEmptyStringError = 'Property \'version\' cannot be an empty string';
 
@@ -132,8 +122,7 @@ const makeObjectValidationHelper = (context) => {
       const errors = [];
 
       const {
-        deletedBy,
-        receivedBy,
+        receivalFailedBy,
         isDataUpdated,
         version,
         destinations,
@@ -142,9 +131,8 @@ const makeObjectValidationHelper = (context) => {
       const totalUpdateInfoProps = keys(updateInfo).length;
 
       if (totalUpdateInfoProps < 1) errors.push('No property is requested to be updated');
-      if (deletedBy && totalUpdateInfoProps > 1) errors.push(deletedByAdditionalPropertiesError);
-      if (receivedBy && totalUpdateInfoProps > 1) errors.push(receivedByAdditionalPropertiesError);
       if (isDataUpdated && totalUpdateInfoProps > 1) errors.push(isDataUpdatedAdditionalPropertiesError);
+      if (receivalFailedBy && totalUpdateInfoProps > 1) errors.push(receivalFailedByAdditionalPropertiesError);
 
       if (version && version === '') errors.push(versionBeingEmptyStringError);
 
@@ -170,49 +158,28 @@ const makeObjectValidationHelper = (context) => {
         preppedObject.updatedAt = new Date();
 
         const {
-          deletedBy,
-          receivedBy,
+          receivalFailedBy,
           isDataUpdated,
           version,
           destinations,
         } = updateInfo;
 
-        if (receivedBy) {
-          if (preppedObject.originId !== currentNodeId) throw new Error('receivedBy update can only be made at origin mess');
+        if (receivalFailedBy) {
+          if (preppedObject.originId !== currentNodeId) throw new Error('receivalFailedBy update can only be made at origin mess');
 
           let foundDest = false;
           preppedObject.destinations = map(preppedObject.destinations, (destination) => {
-            if (destination.nodeId !== receivedBy) return destination;
+            if (destination.nodeId !== receivalFailedBy) return destination;
 
             foundDest = true;
             const updatedDest = destination;
-            updatedDest.receivedAt = new Date();
+            updatedDest.receivedAt = undefined;
             return updatedDest;
           });
 
-          if (!foundDest) throw new Error('Node with id in receivedBy cannot be found in destinations');
+          if (!foundDest) throw new Error('Node with id in receivalFailedBy cannot be found in destinations');
           return {
-            updateType: objectUpdateTypes.NODE_RECEIVED,
-            object: preppedObject,
-          };
-        }
-
-        if (deletedBy) {
-          if (preppedObject.originId !== currentNodeId) throw new Error('deletedBy update can only be made at origin mess');
-
-          let foundDest = false;
-          preppedObject.destinations = map(preppedObject.destinations, (destination) => {
-            if (destination.nodeId !== deletedBy) return destination;
-
-            foundDest = true;
-            const updatedDest = destination;
-            updatedDest.deletedAt = new Date();
-            return updatedDest;
-          });
-
-          if (!foundDest) throw new Error('Node with id in deletedBy cannot be found in destinations');
-          return {
-            updateType: objectUpdateTypes.NODE_DELETED,
+            updateType: objectClusterUpdateTypes.RECEIVAL_FAILED,
             object: preppedObject,
           };
         }
@@ -224,19 +191,19 @@ const makeObjectValidationHelper = (context) => {
           if (destinations) preppedObject.destinations = destinations;
 
           return {
-            updateType: objectUpdateTypes.METADATA_UPDATED,
+            updateType: objectClusterUpdateTypes.METADATA_UPDATED,
             object: preppedObject,
           };
         }
 
         if (isDataUpdated) {
           return {
-            updateType: objectUpdateTypes.DATA_UPDATED,
+            updateType: objectClusterUpdateTypes.DATA_UPDATED,
             object: preppedObject,
           };
         }
 
-        return false;
+        return undefined;
       }));
 
   return {

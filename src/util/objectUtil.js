@@ -1,22 +1,21 @@
-const generateObjectStoragePath = (objectType, objectId) => `${objectType}/${objectId}`;
-
-const generateObjectDataStoragePath = (objectType, objectId) => `${objectType}/${objectId}/data`;
-
 const objectServiceRoles = {
   ORIGIN: 'origin',
   DESTINATION: 'destination',
 };
 
-const objectUpdateTypes = {
-  NODE_RECEIVED: 'node_received',
-  NODE_DELETED: 'node_deleted',
+const objectClusterUpdateTypes = {
   DATA_UPDATED: 'data_updated',
   METADATA_UPDATED: 'metadata_updated',
+  RECEIVAL_FAILED: 'receival_failed',
 };
 
+const generateObjectDataStoragePath = (objectType, objectId) => `objects/${objectType}/${objectId}/data`;
+
+const generateObjectMetadataStoragePath = (objectType, objectId) => `objects/${objectType}/${objectId}/metadata`;
+
 module.exports = {
-  generateObjectStoragePath,
-  generateObjectDataStoragePath,
   objectServiceRoles,
-  objectUpdateTypes,
+  objectClusterUpdateTypes,
+  generateObjectDataStoragePath,
+  generateObjectMetadataStoragePath,
 };

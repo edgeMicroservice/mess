@@ -1,5 +1,8 @@
 const { sort } = require('lodash');
 
+const maximumRetries = 6;
+const minimumRetryDelay = 10; // seconds
+
 const requestTypes = {
   CREATE_OBJECT: 'create_object',
   UPDATE_OBJECT_METADATA: 'update_object_metadata',
@@ -19,12 +22,15 @@ const requestsSorter = (requests) => sort(
   requests, (a, b) => requestsOrder[a.requestType] - requestsOrder[b.requestType],
 );
 
-const generateRequestStoragePath = (nodeId) => `${nodeId}/requests`;
-const revertRequestStoragePath = (storagePath) => storagePath.substr(0, storagePath.indexOf('/requests'));
+const storagePathTag = 'nodeReplays/';
+const generateNodeReplayStoragePath = (nodeId) => `${storagePathTag}${nodeId}`;
+const extractNodeIdFromStoragePath = (storagePath) => storagePath.substr(storagePathTag.length);
 
 module.exports = {
   requestTypes,
+  maximumRetries,
+  minimumRetryDelay,
   requestsSorter,
-  generateRequestStoragePath,
-  revertRequestStoragePath,
+  generateNodeReplayStoragePath,
+  extractNodeIdFromStoragePath,
 };

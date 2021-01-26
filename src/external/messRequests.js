@@ -52,7 +52,19 @@ const makeMESSRequests = (context) => {
     return request(nodeId, requestOptions);
   };
 
-  const updateObjectInCluster = (nodeId, object) => {
+  const updateObjectDataInCluster = (nodeId, object) => {
+    const requestOptions = {
+      endpoint: `/cluster/objects/${object.type}/${object.id}`,
+      method: 'PUT',
+      body: {
+        isDataUpdated: true,
+      },
+    };
+
+    return request(nodeId, requestOptions);
+  };
+
+  const updateObjectMetadataInCluster = (nodeId, object) => {
     const requestOptions = {
       endpoint: `/cluster/objects/${object.type}/${object.id}`,
       method: 'PUT',
@@ -73,11 +85,25 @@ const makeMESSRequests = (context) => {
     return request(nodeId, requestOptions);
   };
 
+  const markReceivalFailed = (currentNodeId, nodeId, object) => {
+    const requestOptions = {
+      endpoint: `/cluster/objects/${object.type}/${object.id}`,
+      method: 'PUT',
+      body: {
+        receivalFailedBy: currentNodeId,
+      },
+    };
+
+    return request(nodeId, requestOptions);
+  };
+
   return {
     getObjects,
     createObjectInCluster,
-    updateObjectInCluster,
+    updateObjectDataInCluster,
+    updateObjectMetadataInCluster,
     deleteObjectInCluster,
+    markReceivalFailed,
   };
 };
 

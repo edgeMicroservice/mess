@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "description": "",
   "author": "mimik technology inc <support@mimik.com> (https://developer.mimik.com/)",
-  "license": "MIT",
+  "license": "UNLICENSED",
+  "private": "true",
   "main": "index.js",
   "type": "mess",
   "swaggerFile": {

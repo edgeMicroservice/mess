@@ -10,8 +10,8 @@ const createObject = (req, res) => {
 
   makeObjectValidationHelper(context)
     .validateAndPopulateNewObject(newObject)
-    .then((validatedObject) => makeObjectProcessor(context)
-      .createObject(validatedObject)
+    .then((preppedObject) => makeObjectProcessor(context)
+      .createObject(preppedObject)
       .then((data) => { response.sendResult({ data }, 201, res); })
       .catch((error) => { response.sendError(error, res, 400); }));
 };

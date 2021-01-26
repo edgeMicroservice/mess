@@ -21,8 +21,8 @@ const updateObjectInCluster = (req, res) => {
 
   makeObjectValidationHelper(context)
     .validateAndPopulateObjectUpdateInCluster(objectType, objectId, updateInfo)
-    .then((objectUpdate) => makeClusterProcessor(context)
-      .updateObjectInCluster(objectType, objectId, objectUpdate)
+    .then(({ updateType, objectUpdate }) => makeClusterProcessor(context)
+      .updateObjectInCluster(updateType, objectUpdate)
       .then((data) => { response.sendResult({ data }, 200, res); })
       .catch((error) => { response.sendError(error, res, 400); }));
 };

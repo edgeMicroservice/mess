@@ -1,3 +1,4 @@
+const makeRequestHelper = require('../lib/requestHelper');
 const makeObjectPropagationHelper = require('../lib/objectPropagationHelper');
 const makeObjectModel = require('../models/objectModel');
 
@@ -11,7 +12,10 @@ const makeObjectProcessor = (context) => {
     return makeObjectModel(context).saveObject(newObject)
       .then((persistedObject) => makeObjectPropagationHelper(context)
         .notifyNewObjectDestinations(persistedObject)
-        .then(() => persistedObject));
+        .then(() => {
+          makeRequestHelper(context).initializeReplays();
+          return persistedObject;
+        }));
   };
 
   const readObjects = (objectType, destinationNodeId, updatedAfter) => makeObjectModel(context)
@@ -37,6 +41,10 @@ const makeObjectProcessor = (context) => {
         .filter((object) => !!object);
 
       return filteredObjects;
+    })
+    .then((objects) => {
+      makeRequestHelper(context).initializeReplays();
+      return objects;
     });
 
   const readObject = (objectType, objectId) => makeObjectModel(context)
@@ -44,6 +52,7 @@ const makeObjectProcessor = (context) => {
     .then((object) => {
       if (!object) throw new Error('Object not found');
 
+      makeRequestHelper(context).initializeReplays();
       return object;
     });
 
@@ -53,7 +62,11 @@ const makeObjectProcessor = (context) => {
     return objectModel.getObject(objectUpdate.type, objectUpdate.id)
       .then((originalObject) => objectModel.updateObject(objectUpdate.type, objectUpdate.id, objectUpdate)
         .then((updatedObject) => makeObjectPropagationHelper(context)
-          .notifyUpdatedObjectDestinations(originalObject, updatedObject, updateInfo)));
+          .notifyUpdatedObjectDestinations(originalObject, updatedObject, updateInfo)
+          .then(() => {
+            makeRequestHelper(context).initializeReplays();
+            return updatedObject;
+          })));
   };
 
   const deleteObject = (objectType, objectId) => {
@@ -66,7 +79,11 @@ const makeObjectProcessor = (context) => {
         }
         return objectModel.deleteObject(objectType, objectId)
           .then(() => makeObjectPropagationHelper(context)
-            .notifyRemovedObjectDestinations(originalObject));
+            .notifyRemovedObjectDestinations(originalObject))
+          .then(() => {
+            makeRequestHelper(context).initializeReplays();
+            return originalObject;
+          });
       });
   };
 
