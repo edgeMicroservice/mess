@@ -1,66 +1,33 @@
 const Promise = require('bluebird');
 const { some } = require('lodash');
 
-
+const makeRequestHelper = require('./requestHelper');
 const makeObjectCommonHelper = require('./commonHelper');
 
-const makeMESSRequests = require('../external/messRequests');
+const { requestTypes } = require('../util/nodeReplayUtil');
 
-const makeObjectHelper = (context) => {
-  const sendCreationRequest = (nodeId, object) => makeObjectCommonHelper()
-    .getCurrentContextDetails()
+const makeObjectPropagationHelper = (context) => {
+  const { notifyMess } = makeRequestHelper(context);
+  const { getCurrentContextDetails } = makeObjectCommonHelper(context);
+
+  const sendRequest = (nodeId, requestType, object) => getCurrentContextDetails()
     .then(({ currentNodeId }) => {
       if (nodeId === currentNodeId) return Promise.resolve();
 
-      return makeMESSRequests(context)
-        .createObjectInCluster(nodeId, object)
-        .catch((error) => {
-          console.log('===> sendCreationRequest error', { nodeId, error });
-          // TODO update logging
-        });
+      return notifyMess(nodeId, requestType, object);
     });
 
-  const sendUpdationRequest = (nodeId, object) => makeObjectCommonHelper()
-    .getCurrentContextDetails()
-    .then(({ currentNodeId }) => {
-      if (nodeId === currentNodeId) return Promise.resolve();
-
-      return makeMESSRequests(context)
-        .updateObjectInCluster(nodeId, object)
-        .catch((error) => {
-          console.log('===> sendUpdationRequest error', { nodeId, error });
-          // TODO update logging
-        });
-    });
-
-  const sendRemovalRequest = (nodeId, object) => makeObjectCommonHelper()
-    .getCurrentContextDetails()
-    .then(({ currentNodeId }) => {
-      if (nodeId === currentNodeId) return Promise.resolve();
-
-      return makeMESSRequests(context)
-        .deleteObjectInCluster(nodeId, object)
-        .catch((error) => {
-          console.log('===> sendRemovalRequest error', { nodeId, error });
-          // TODO update logging
-        });
-    });
 
   const notifyNewObjectDestinations = (newObject) => {
     const { destinations } = newObject;
 
-    return Promise.map(destinations, (dest) => sendCreationRequest(dest.nodeId, newObject));
+    return Promise.map(destinations, (dest) => sendRequest(dest.nodeId, requestTypes.CREATE_OBJECT, newObject));
   };
 
-  const notifyUpdatedObjectDestinations = (originalObject, updatedObject, updateInfo) => {
+  const notifyUpdatedMetadataObjectDestinations = (originalObject, updatedObject, updateInfo) => {
     if (!updateInfo.destinations) {
-      if (updateInfo.version) {
-        const { destinations } = updateInfo;
-
-        return Promise.map(destinations, (dest) => sendUpdationRequest(dest.nodeId, updatedObject));
-      }
-
-      return Promise.resolve();
+      const { destinations } = updateInfo;
+      return Promise.map(destinations, (dest) => sendRequest(dest.nodeId, requestTypes.UPDATE_OBJECT_METADATA, updatedObject));
     }
 
     const { destinations: oldDestinations } = originalObject;
@@ -85,15 +52,15 @@ const makeObjectHelper = (context) => {
 
     const destinationsCreationPromise = destinationsToCreate.length === 0
       ? Promise.resolve()
-      : Promise.map(destinationsToCreate, (nodeId) => sendCreationRequest(nodeId, updatedObject));
+      : Promise.map(destinationsToCreate, (nodeId) => sendRequest(nodeId, requestTypes.CREATE_OBJECT, updatedObject));
 
     const destinationsUpdationPromise = destinationsToUpdate.length === 0
       ? Promise.resolve()
-      : Promise.map(destinationsToUpdate, (nodeId) => sendUpdationRequest(nodeId, updatedObject));
+      : Promise.map(destinationsToUpdate, (nodeId) => sendRequest(nodeId, requestTypes.UPDATE_OBJECT_METADATA, updatedObject));
 
     const destinationsRemovalPromise = destinationsToRemove.length === 0
       ? Promise.resolve()
-      : Promise.map(destinationsToRemove, (nodeId) => sendRemovalRequest(nodeId, updatedObject));
+      : Promise.map(destinationsToRemove, (nodeId) => sendRequest(nodeId, requestTypes.DELETE_OBJECT, updatedObject));
 
     return Promise.all([
       destinationsCreationPromise,
@@ -102,17 +69,24 @@ const makeObjectHelper = (context) => {
     ]);
   };
 
+  const notifyUpdatedDataObjectDestinations = (object) => {
+    const { destinations } = object;
+
+    return Promise.map(destinations, (dest) => sendRequest(dest.nodeId, requestTypes.UPDATE_OBJECT_DATA, object));
+  };
+
   const notifyRemovedObjectDestinations = (object) => {
     const { destinations } = object;
 
-    return Promise.map(destinations, (dest) => sendRemovalRequest(dest.nodeId, object));
+    return Promise.map(destinations, (dest) => sendRequest(dest.nodeId, requestTypes.DELETE_OBJECT, object));
   };
 
   return {
     notifyNewObjectDestinations,
-    notifyUpdatedObjectDestinations,
+    notifyUpdatedDataObjectDestinations,
+    notifyUpdatedMetadataObjectDestinations,
     notifyRemovedObjectDestinations,
   };
 };
 
-module.exports = makeObjectHelper;
+module.exports = makeObjectPropagationHelper;

@@ -1,3 +1,10 @@
+const defaultMimeType = 'application/octet-stream';
+
+const maxiumumLabels = 10;
+const maxiumumAttributes = 10;
+const maximumTotalLabelsLength = 500;
+const maximumTotalAttributesLength = 500;
+
 const objectServiceRoles = {
   ORIGIN: 'origin',
   DESTINATION: 'destination',
@@ -14,6 +21,11 @@ const generateObjectDataStoragePath = (objectType, objectId) => `objects/${objec
 const generateObjectMetadataStoragePath = (objectType, objectId) => `objects/${objectType}/${objectId}/metadata`;
 
 module.exports = {
+  defaultMimeType,
+  maxiumumLabels,
+  maxiumumAttributes,
+  maximumTotalLabelsLength,
+  maximumTotalAttributesLength,
   objectServiceRoles,
   objectClusterUpdateTypes,
   generateObjectDataStoragePath,

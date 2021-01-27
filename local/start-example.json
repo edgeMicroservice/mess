@@ -4,7 +4,7 @@
   "env": {
     "MCM.BASE_API_PATH": "/mess/v1",
     "MCM.WEBSOCKET_SUPPORT": "false",
-    "PARENT_MESS_NODE_ID": "--node-id-where-parent-mess-deployed--",
+    "DATA_SYNC_URL": "--data-sync-url--",
     "OAUTH_GENERIC_KEY": "--oauth-system-generic-public-key--",
     "OAUTH_CLIENT_ID": "--oauth-client-id--",
     "OAUTH_CLIENT_SECRET": "--oauth-client-secret--",

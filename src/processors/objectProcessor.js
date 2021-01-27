@@ -1,10 +1,28 @@
+const makeObjectModel = require('../models/objectModel');
+const makeNodeReplay = require('../models/nodeReplayModel');
+
 const makeRequestHelper = require('../lib/requestHelper');
 const makeObjectPropagationHelper = require('../lib/objectPropagationHelper');
-const makeObjectModel = require('../models/objectModel');
+const makeObjectValidationHelper = require('../lib/objectValidationHelper');
 
-const { objectServiceRoles } = require('../util/objectUtil');
+const {
+  objectServiceRoles,
+  generateObjectDataStoragePath,
+} = require('../util/objectUtil');
+
+const {
+  requestTypes,
+} = require('../util/nodeReplayUtil');
 
 const makeObjectProcessor = (context) => {
+  const getObjectAndCheckIfActive = (objectType, objectId) => makeObjectModel(context)
+    .getObject(objectType, objectId)
+    .then((object) => {
+      if (object.deletionRequestedAt) throw new Error(`Requested object is up for deletion: ${JSON.stringify({ objectType, objectId })}`);
+
+      return object;
+    });
+
   const createObject = (newObject) => {
     const objectToSave = newObject;
     objectToSave.serviceRole = objectServiceRoles.ORIGIN;
@@ -12,20 +30,15 @@ const makeObjectProcessor = (context) => {
     return makeObjectModel(context).saveObject(newObject)
       .then((persistedObject) => makeObjectPropagationHelper(context)
         .notifyNewObjectDestinations(persistedObject)
-        .then(() => {
-          makeRequestHelper(context).initializeReplays();
-          return persistedObject;
-        }));
+        .then(() => persistedObject));
   };
 
-  const readObjects = (objectType, destinationNodeId, updatedAfter) => makeObjectModel(context)
+  const readObjects = (objectType, destinationNodeId) => makeObjectModel(context)
     .getAllObjects()
     .then((objects) => {
       const filteredObjects = objects.map(
         (object) => {
           if (objectType && object.type !== objectType) return false;
-
-          if (updatedAfter && updatedAfter > new Date(object.updatedAt)) return false;
 
           if (!destinationNodeId) return object;
 
@@ -56,36 +69,89 @@ const makeObjectProcessor = (context) => {
       return object;
     });
 
-  const updateObject = (objectUpdate, updateInfo) => {
-    const objectModel = makeObjectModel(context);
+  const updateObject = (objectUpdate, updateInfo) => getObjectAndCheckIfActive(objectUpdate.type, objectUpdate.id)
+    .then((originalObject) => makeObjectModel(context).updateObject(objectUpdate.type, objectUpdate.id, objectUpdate)
+      .then((updatedObject) => makeObjectPropagationHelper(context)
+        .notifyUpdatedMetadataObjectDestinations(originalObject, updatedObject, updateInfo)
+        .then(() => updatedObject)));
 
-    return objectModel.getObject(objectUpdate.type, objectUpdate.id)
-      .then((originalObject) => objectModel.updateObject(objectUpdate.type, objectUpdate.id, objectUpdate)
-        .then((updatedObject) => makeObjectPropagationHelper(context)
-          .notifyUpdatedObjectDestinations(originalObject, updatedObject, updateInfo)
-          .then(() => {
-            makeRequestHelper(context).initializeReplays();
-            return updatedObject;
-          })));
-  };
+  const deleteObject = (objectType, objectId) => getObjectAndCheckIfActive(objectType, objectId)
+    .then((originalObject) => {
+      if (originalObject.serviceRole !== objectServiceRoles.ORIGIN) {
+        throw new Error('Object can only be deleted at origin');
+      }
+      return makeObjectModel(context).deleteObject(objectType, objectId)
+        .then(() => makeObjectPropagationHelper(context)
+          .notifyRemovedObjectDestinations(originalObject))
+        .then(() => originalObject);
+    });
 
-  const deleteObject = (objectType, objectId) => {
-    const objectModel = makeObjectModel(context);
+  const readObjectData = (objectType, objectId) => getObjectAndCheckIfActive(objectType, objectId)
+    .then((object) => {
+      makeRequestHelper(context).initializeReplays();
 
-    return objectModel.getObject(objectType, objectId)
-      .then((originalObject) => {
-        if (originalObject.serviceRole !== objectServiceRoles.ORIGIN) {
-          throw new Error('Object can only be deleted at origin');
-        }
-        return objectModel.deleteObject(objectType, objectId)
-          .then(() => makeObjectPropagationHelper(context)
-            .notifyRemovedObjectDestinations(originalObject))
-          .then(() => {
-            makeRequestHelper(context).initializeReplays();
-            return originalObject;
-          });
+      return {
+        path: generateObjectDataStoragePath(objectType, objectId),
+        mimeType: object.mimeType,
+      };
+    });
+
+  const updateObjectData = (objectType, objectId, handleFormRequestFunc) => readObject(objectType, objectId)
+    .then(() => {
+      let attributes = '';
+      let mimeType = '';
+
+      handleFormRequestFunc({
+        found: (key) => {
+          let todo = {
+            action: 'skip',
+          };
+
+          if (key === 'attributes') {
+            todo = {
+              action: 'getAttributes',
+            };
+          } else if (key === 'mimeType') {
+            todo = {
+              action: 'getMimeType',
+            };
+          } else if (key === 'file') {
+            todo = {
+              action: 'store',
+              path: `${generateObjectDataStoragePath(objectType, objectId)}`,
+            };
+          }
+
+          return todo;
+        },
+        getAttributes: (key, value) => {
+          attributes = attributes.concat(value);
+        },
+        getMimeType: (key, value) => {
+          mimeType = mimeType.concat(value);
+        },
+        store: () => { },
       });
-  };
+
+      let metadataUpdateInfo;
+      if (attributes || mimeType) {
+        metadataUpdateInfo = {};
+        if (mimeType !== '') metadataUpdateInfo.mimeType = mimeType;
+        if (attributes !== '') metadataUpdateInfo.attributes = attributes;
+      }
+
+      if (!metadataUpdateInfo) return Promise.resolve();
+
+      return makeObjectValidationHelper(context)
+        .validateAndPopulateObjectUpdate(objectType, objectId, metadataUpdateInfo)
+        .then((preppedObject) => updateObject(preppedObject, metadataUpdateInfo))
+        .then((updatedObject) => makeNodeReplay(context).deleteRequest(updatedObject.originId, requestTypes.RECEIVAL_FAILED, updatedObject, false)
+          .then(() => {
+            makeObjectPropagationHelper(context)
+              .notifyUpdatedDataObjectDestinations(updatedObject);
+            return updatedObject;
+          }));
+    });
 
   return {
     createObject,
@@ -93,6 +159,8 @@ const makeObjectProcessor = (context) => {
     readObject,
     updateObject,
     deleteObject,
+    readObjectData,
+    updateObjectData,
   };
 };
 

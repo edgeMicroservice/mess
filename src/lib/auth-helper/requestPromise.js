@@ -30,6 +30,10 @@ const makeRequestPromise = (context) => {
         updatedOptions.data = JSON.stringify(options.body);
       }
 
+      if (options.headers) {
+        updatedOptions.headers = JSON.stringify(options.headers);
+      }
+
       http.request(updatedOptions);
     });
   };

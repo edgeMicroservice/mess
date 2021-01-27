@@ -1,5 +1,10 @@
 const Promise = require('bluebird');
-const { keys, floor, random } = require('lodash');
+const {
+  keys,
+  floor,
+  random,
+  map,
+} = require('lodash');
 
 const makeCommonHelper = require('./commonHelper');
 const makeObjectModel = require('../models/objectModel');
@@ -18,58 +23,94 @@ const makeRequestHelper = (context) => {
   const messRequests = makeMESSRequests(context);
   const nodeReplayModel = makeNodeReplayModel(context);
 
-  const sendRequest = (nodeId, requestType, requestAfter, object) => commonHelper
-    .getCurrentContextDetails(({ currentNodeId }) => {
-      const requester = () => {
-        // TODO Handle currentNodeId scenarios
-        // if (nodeId === currentNodeId) return Promise.resolve(false);
+  const markObjectReceived = (nodeId, object) => {
+    const { destinations } = object;
+    const updatedDestinations = map(destinations, (dest) => {
+      if (dest.nodeId !== nodeId) return dest;
 
-        // TODO add detection for type of failure and let it only retry if transient failure
-
-        if (new Date() < requestAfter) return Promise.resolve(false);
-
-        switch (requestType) {
-          case requestTypes.CREATE_OBJECT:
-            return messRequests.createObjectInCluster(nodeId, object);
-          case requestTypes.UPDATE_OBJECT_DATA:
-            return messRequests.updateObjectDataInCluster(nodeId, object);
-          case requestTypes.UPDATE_OBJECT_METADATA:
-            return messRequests.updateObjectMetadataInCluster(nodeId, object);
-          case requestTypes.DELETE_OBJECT:
-            return messRequests.deleteObjectInCluster(nodeId, object);
-          case requestTypes.RECEIVAL_FAILED:
-            return messRequests.markReceivalFailed(currentNodeId, nodeId, object);
-          default:
-            throw new Error(`Unknown requestType is requested to be sent: ${JSON.stringify({ nodeId, requestType, object })}`);
-        }
-      };
-
-      // TODO ONLY THROW ERROR IF TRANSIENT ISSUE, SO QUEUE PROCESSOR CAN STOP
-
-      return requester()
-        .then((didSendRequest) => {
-          if (didSendRequest) {
-            // make sure request is still closed on failure if the failure was not connectivity
-            return nodeReplayModel.deleteRequest(nodeId, requestType, object)
-              .then((response) => {
-                console.log('===> success received from cluster call', {
-                  nodeId, requestType, object, response,
-                });
-              })
-              .catch((error) => {
-                console.log('===> error received from cluster call', {
-                  nodeId, requestType, object, error,
-                });
-              });
-          }
-          return undefined;
-        })
-        .catch((error) => nodeReplayModel.markNodeFailedRetry(nodeId)
-          .catch((retryError) => {
-            console.log('===> error while marking retry failed', { error: retryError });
-          })
-          .then(() => { throw error; }));
+      const updatedDest = dest;
+      updatedDest.receivedAt = new Date();
+      return updatedDest;
     });
+
+    return makeObjectModel(context).updateObject(object.type, object.id, { destinations: updatedDestinations });
+  };
+
+  const markObjectDeleted = (nodeId, object) => {
+    const { destinations } = object;
+    const updatedDestinations = map(destinations, (dest) => {
+      if (dest.nodeId !== nodeId) return dest;
+
+      const updatedDest = dest;
+      updatedDest.deletedAt = new Date();
+      return updatedDest;
+    });
+
+    return makeObjectModel(context).updateObject(object.type, object.id, { destinations: updatedDestinations });
+  };
+
+  const deleteRequestSuccessfully = (nodeId, requestType, object) => nodeReplayModel.deleteRequest(nodeId, requestType, object)
+    .then((response) => {
+      console.log('===> success received from cluster call', {
+        nodeId, requestType, object, response,
+      });
+    })
+    .catch((error) => {
+      console.log('===> error received while deleting object', {
+        nodeId, requestType, object, error,
+      });
+    });
+
+  const sendRequest = (nodeId, requestType, requestAfter, object) => {
+    const requester = () => {
+      if (new Date() < requestAfter) return Promise.resolve(false);
+
+      switch (requestType) {
+        case requestTypes.CREATE_OBJECT:
+          return messRequests.createObjectInCluster(nodeId, object);
+
+        case requestTypes.UPDATE_OBJECT_DATA:
+          return messRequests.updateObjectDataInCluster(nodeId, object)
+            .then((response) => markObjectReceived(nodeId, object)
+              .then(() => response));
+
+        case requestTypes.UPDATE_OBJECT_METADATA:
+          return messRequests.updateObjectMetadataInCluster(nodeId, object);
+
+        case requestTypes.DELETE_OBJECT:
+          return messRequests.deleteObjectInCluster(nodeId, object)
+            .then((response) => markObjectDeleted(nodeId, object)
+              .then(() => response));
+
+        case requestTypes.RECEIVAL_FAILED:
+          return commonHelper
+            .getCurrentContextDetails()
+            .then(({ currentNodeId }) => messRequests.markReceivalFailed(currentNodeId, nodeId, object));
+
+        default:
+          throw new Error(`Unknown requestType is requested to be sent: ${JSON.stringify({ nodeId, requestType, object })}`);
+      }
+    };
+
+    return requester()
+      .then((didSendRequest) => {
+        if (didSendRequest) return deleteRequestSuccessfully(nodeId, requestType, object);
+        return undefined;
+      })
+      .catch((error) => {
+        const { statusCode } = error;
+        if (statusCode
+          && (floor(statusCode / 100) === 5 || statusCode === 429)) {
+          return nodeReplayModel.markNodeFailedRetry(nodeId)
+            .catch((retryError) => {
+              console.log('===> error while marking retry failed', { error: retryError });
+            })
+            .then(() => { throw error; });
+        }
+
+        return deleteRequestSuccessfully(nodeId, requestType, object);
+      });
+  };
 
   const randomNodeReplayPicker = () => nodeReplayModel.getAllNodeIds()
     .then((nodeIds) => {
@@ -124,22 +165,37 @@ const makeRequestHelper = (context) => {
       });
   };
 
-  const notifyMess = (nodeId, requestType, object) => {
-    let requestAfter;
-    if (requestType === requestTypes.RECEIVAL_FAILED) {
-      requestAfter = new Date();
-      requestAfter.setSeconds(requestAfter.getSeconds() + RECEIVAL_FAILED_DELAY);
-    }
+  const notifyMess = (nodeId, requestTypesToAdd, object) => commonHelper
+    .getCurrentContextDetails()
+    .then(({ currentNodeId }) => {
+      if (nodeId === currentNodeId) {
+        return Promise.map((requestTypesToAdd), (requestType) => {
+          if (requestType === requestTypes.DELETE_OBJECT) return markObjectDeleted(nodeId, object);
+          if (requestType === requestTypes.UPDATE_OBJECT_DATA) return markObjectReceived(nodeId, object);
 
-    return nodeReplayModel.addRequest(nodeId, requestType, requestAfter, object)
-      .then(() => sendRequest(nodeId, requestType, requestAfter, object))
-      .then(() => {
-        initializeReplays();
+          return Promise.resolve();
+        });
+      }
+
+      let requestTypesArr = [];
+
+      if (typeof requestTypes === 'string') requestTypesArr.push(requestTypesToAdd);
+      else if (Array.isArray(requestTypes)) requestTypesArr = requestTypesToAdd;
+      else throw new Error(`Uknown requestTypesToAdd passed to notifyMess: ${requestTypesToAdd}`);
+
+      return Promise.map(requestTypesArr, (requestType) => {
+        let requestAfter;
+        if (requestType === requestTypes.RECEIVAL_FAILED) {
+          requestAfter = new Date();
+          requestAfter.setSeconds(requestAfter.getSeconds() + RECEIVAL_FAILED_DELAY);
+        }
+        return nodeReplayModel.addRequest(nodeId, requestType, requestAfter, object);
       })
-      .catch((error) => {
-        console.log('===> error', error);
-      });
-  };
+        .then(() => { initializeReplays(nodeId); })
+        .catch((error) => {
+          console.log('===> error occured in notifyMess', error);
+        });
+    });
 
 
   return {
