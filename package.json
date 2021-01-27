@@ -1,7 +1,7 @@
 {
   "name": "mess",
   "version": "1.0.0",
-  "description": "",
+  "description": "This microservice is used for content syncing between gateway and edge nodes",
   "author": "mimik technology inc <support@mimik.com> (https://developer.mimik.com/)",
   "license": "UNLICENSED",
   "private": "true",
@@ -9,7 +9,8 @@
   "type": "mess",
   "swaggerFile": {
     "version": "1.0.0",
-    "account": "mimik"
+    "account": "mimik",
+    "name": "mess"
   },
   "scripts": {
     "build": "node ./node_modules/webpack/bin/webpack.js --progress --colors --config webpack.config.js",
