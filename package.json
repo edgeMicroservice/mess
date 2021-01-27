@@ -7,6 +7,12 @@
   "private": "true",
   "main": "index.js",
   "type": "mess",
+  "Contributors": [
+    {
+      "name": "Kevin Toor",
+      "email": "kevin.toor@mimik.com"
+    }
+  ],
   "swaggerFile": {
     "version": "1.0.0",
     "account": "mimik",
