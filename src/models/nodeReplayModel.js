@@ -318,7 +318,7 @@ const makeNodeReplay = (context) => {
 
           requestDeletionPromises.push(persistNodeReplay(nodeId, updatedNodeReplay)
             .catch((error) => {
-              // TODO error
+              // TODO log error properly
               console.log('===> deletion promise error', { nodeId, object, error });
             }));
         }
