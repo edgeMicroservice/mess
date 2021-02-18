@@ -27,8 +27,15 @@ const updateObjectInCluster = (req, res) => {
       .catch((error) => { response.sendError(error, res, 400); }));
 };
 
-const deleteObjectInCluster = () => {
+const deleteObjectInCluster = (req, res) => {
+  const { context, swagger } = req;
 
+  const { objectType, objectId } = swagger.params;
+
+  makeClusterProcessor(context)
+    .deleteObjectInCluster(objectType, objectId)
+    .then((data) => { response.sendResult({ data }, 200, res); })
+    .catch((error) => { response.sendError(error, res, 400); });
 };
 
 module.exports = {

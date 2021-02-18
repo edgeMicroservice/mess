@@ -1,4 +1,4 @@
-const { sort } = require('lodash');
+const { sortBy } = require('lodash');
 
 const maximumRetries = 6;
 const minimumRetryDelay = 10; // seconds
@@ -18,9 +18,13 @@ requestsOrder[requestTypes.UPDATE_OBJECT_DATA] = 2;
 requestsOrder[requestTypes.DELETE_OBJECT] = 3;
 requestsOrder[requestTypes.RECEIVAL_FAILED] = 4;
 
-const requestsSorter = (requests) => sort(
-  requests, (a, b) => requestsOrder[a.requestType] - requestsOrder[b.requestType],
-);
+const requestsSorter = (requests) => {
+  if (requests.length < 2) return requests;
+
+  return sortBy(
+    requests, (a, b) => requestsOrder[a.requestType] - requestsOrder[b.requestType],
+  );
+};
 
 const storagePathTag = 'nodeReplays/';
 const generateNodeReplayStoragePath = (nodeId) => `${storagePathTag}${nodeId}`;

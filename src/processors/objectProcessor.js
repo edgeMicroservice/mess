@@ -80,6 +80,7 @@ const makeObjectProcessor = (context) => {
       if (originalObject.serviceRole !== objectServiceRoles.ORIGIN) {
         throw new Error('Object can only be deleted at origin');
       }
+
       return makeObjectModel(context).deleteObject(objectType, objectId)
         .then(() => makeObjectPropagationHelper(context)
           .notifyRemovedObjectDestinations(originalObject))

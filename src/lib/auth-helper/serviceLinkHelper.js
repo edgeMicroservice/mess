@@ -65,6 +65,7 @@ const getEdgeServiceLinkByNodeId = (nodeId, serviceType, edgeAccessToken, ctx) =
       if (!currentNode) throw new Error(`current node with id: ${ctx.info.nodeId} cannot be found`);
       const nodeLink = getNodeLink(currentNode, targetNode);
       const serviceLink = appendServiceUrl(nodeLink, targetNode, serviceType);
+
       return serviceLink;
     });
 };

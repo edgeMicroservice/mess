@@ -73,6 +73,8 @@ const makeNodeReplay = (context) => {
         updatedRequest.requestAfter = !updatedRequest.requestAfter
           ? earliestDate
           : new Date(updatedRequest.requestAfter);
+
+        return updatedRequest;
       });
 
     updatedNodeReplay.requests = requestsSorter(updatedNodeReplay.requests);
@@ -83,6 +85,7 @@ const makeNodeReplay = (context) => {
     try {
       const formattedNodeReplay = formatNodeReplay(nodeReplay);
       const requestStr = JSON.stringify(formattedNodeReplay);
+
       storage.setItemWithTag(storagePath, requestStr, MODEL_NAME);
       return Promise.resolve(formattedNodeReplay);
     } catch (error) {

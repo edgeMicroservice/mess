@@ -1,3 +1,5 @@
+const Promise = require('bluebird');
+
 const makeClientModel = require('./tokenSelector');
 const makeMDSRequests = require('../external/mDSRequests');
 

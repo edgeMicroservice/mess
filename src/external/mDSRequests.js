@@ -11,6 +11,8 @@ const CLUSTER_DISCOVERY_TAG = {
   ACCOUNT: 'account',
 };
 
+let findByAccountResult;
+
 const makeMDSRequests = (context) => {
   const { edge } = context;
 
@@ -37,10 +39,18 @@ const makeMDSRequests = (context) => {
     );
   });
 
-  const findByAccount = (accessToken) => clusterDiscovery(
-    CLUSTER_DISCOVERY_TAG.ACCOUNT, accessToken,
-  )
-    .then((data) => map(data.nodes, (node) => populateUrl(node)));
+  const findByAccount = (accessToken) => {
+    if (findByAccountResult) return Promise.resolve(findByAccountResult);
+
+    return clusterDiscovery(
+      CLUSTER_DISCOVERY_TAG.ACCOUNT, accessToken,
+    )
+      .then((data) => map(data.nodes, (node) => populateUrl(node)))
+      .then((result) => {
+        findByAccountResult = result;
+        return result;
+      });
+  };
 
   return {
     findByAccount,

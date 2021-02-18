@@ -179,7 +179,7 @@ const makeRequestHelper = (context) => {
 
       let requestTypesArr = [];
 
-      if (typeof requestTypes === 'string') requestTypesArr.push(requestTypesToAdd);
+      if (typeof requestTypesToAdd === 'string') requestTypesArr.push(requestTypesToAdd);
       else if (Array.isArray(requestTypes)) requestTypesArr = requestTypesToAdd;
       else throw new Error(`Uknown requestTypesToAdd passed to notifyMess: ${requestTypesToAdd}`);
 
@@ -189,6 +189,7 @@ const makeRequestHelper = (context) => {
           requestAfter = new Date();
           requestAfter.setSeconds(requestAfter.getSeconds() + RECEIVAL_FAILED_DELAY);
         }
+
         return nodeReplayModel.addRequest(nodeId, requestType, requestAfter, object);
       })
         .then(() => { initializeReplays(nodeId); })

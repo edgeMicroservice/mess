@@ -6,11 +6,6 @@ const {
 } = require('lodash');
 
 const {
-  NotFoundError,
-  ParameterError,
-} = require('@mimik/edge-ms-helper/error-helper');
-
-const {
   generateObjectMetadataStoragePath,
   generateObjectDataStoragePath,
 } = require('../util/objectUtil');
@@ -24,6 +19,7 @@ const makeObjectModel = (context) => {
     try {
       const objectStr = JSON.stringify(object);
       storage.setItemWithTag(storagePath, objectStr, MODEL_NAME);
+
       return Promise.resolve(object);
     } catch (error) {
       return Promise.reject(new Error(`Error occured while persisting object: ${error}`));
@@ -32,13 +28,10 @@ const makeObjectModel = (context) => {
 
   const fetchObject = (storagePath) => {
     try {
-      const object = storage.getItem(storagePath);
+      const objectStr = storage.getItem(storagePath);
+      const object = objectStr ? JSON.parse(objectStr) : undefined;
 
-      if (!object) {
-        return Promise.reject(new NotFoundError(`No such file: ${storagePath}`));
-      }
-
-      return Promise.resolve(JSON.parse(object));
+      return Promise.resolve(object);
     } catch (error) {
       return Promise.reject(new Error(`Error occured while fetching object: ${error}`));
     }
@@ -46,8 +39,9 @@ const makeObjectModel = (context) => {
 
   const removeObjectAndData = (objectStoragePath, objectDataStoragePath) => {
     try {
-      storage.removeItemWithTag(objectStoragePath, MODEL_NAME);
-      storage.deleteFileWithTag(objectDataStoragePath, MODEL_NAME);
+      storage.removeItem(objectStoragePath);
+      storage.deleteFile(objectDataStoragePath);
+
       return Promise.resolve();
     } catch (error) {
       return Promise.reject(new Error(`Error occured while deleting object: ${error}`));
@@ -56,14 +50,23 @@ const makeObjectModel = (context) => {
 
   const getObject = (objectType, objectId) => {
     const storagePath = generateObjectMetadataStoragePath(objectType, objectId);
-    return fetchObject(storagePath);
+
+    return fetchObject(storagePath)
+      .then((object) => {
+        if (!object) {
+          throw new Error(`No such file: ${storagePath}`);
+        }
+
+        return object;
+      });
   };
 
   const saveObject = (newObject) => {
     const storagePath = generateObjectMetadataStoragePath(newObject.type, newObject.id);
+
     return fetchObject(storagePath)
       .then((origObject) => {
-        if (origObject) throw new ParameterError('Object already exists with same objectId and objectType');
+        if (origObject) throw new Error('Object already exists with same objectId and objectType');
         return persistObject(storagePath, newObject);
       });
   };
@@ -71,7 +74,7 @@ const makeObjectModel = (context) => {
   const updateObject = (objectType, objectId, updateInfo) => {
     const storagePath = generateObjectMetadataStoragePath(objectType, objectId);
 
-    return fetchObject(storagePath)
+    return getObject(objectType, objectId)
       .then((origObject) => {
         const updatedObject = { ...origObject, ...updateInfo };
         return persistObject(storagePath, updatedObject);
@@ -82,7 +85,7 @@ const makeObjectModel = (context) => {
     const objectStoragePath = generateObjectMetadataStoragePath(objectType, objectId);
     const objectDataStoragePath = generateObjectDataStoragePath(objectType, objectId);
 
-    return fetchObject(objectStoragePath)
+    return getObject(objectType, objectId)
       .then(() => removeObjectAndData(objectStoragePath, objectDataStoragePath));
   };
 
