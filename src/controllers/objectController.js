@@ -48,8 +48,8 @@ const updateObject = (req, res) => {
     .validateAndPopulateObjectUpdate(objectType, objectId, updateInfo)
     .then((preppedObject) => makeObjectProcessor(context)
       .updateObject(preppedObject, updateInfo)
-      .then((data) => response.sendResult({ data }, 200, res))
-      .catch((error) => response.sendHttpError(error, res, 400)));
+      .then((data) => { response.sendResult({ data }, 200, res); })
+      .catch((error) => { response.sendError(error, res, 400); }));
 };
 
 const deleteObject = (req, res) => {
@@ -59,8 +59,8 @@ const deleteObject = (req, res) => {
 
   makeObjectProcessor(context)
     .deleteObject(objectType, objectId)
-    .then((data) => response.sendResult({ data }, 200, res))
-    .catch((error) => response.sendHttpError(error, res, 400));
+    .then((data) => { response.sendResult({ data }, 200, res); })
+    .catch((error) => { response.sendError(error, res, 400); });
 };
 
 const readObjectData = (req, res) => {
@@ -71,7 +71,7 @@ const readObjectData = (req, res) => {
   makeObjectProcessor(context)
     .readObjectData(objectType, objectId)
     .then(({ path, mimeType }) => res.writeMimeFile(path, mimeType))
-    .catch((error) => response.sendHttpError(error, res, 400));
+    .catch((error) => response.sendError(error, res, 400));
 };
 
 const updateObjectData = (req, res) => {
@@ -82,7 +82,7 @@ const updateObjectData = (req, res) => {
   makeObjectProcessor(context)
     .updateObjectData(objectType, objectId, handleFormRequest)
     .then((data) => response.sendResult({ data }, 200, res))
-    .catch((error) => response.sendHttpError(error, res, 400));
+    .catch((error) => response.sendError(error, res, 400));
 };
 
 module.exports = {

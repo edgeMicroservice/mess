@@ -156,7 +156,6 @@ const makeNodeReplay = (context) => {
           const nodeId = extractNodeIdFromStoragePath(key);
           nodeReplaysMap[nodeId] = formatNodeReplay(nodeReplay);
         } catch (error) {
-          // TODO Log this properly
           console.log('===> getAllNodeReplays error', error);
         }
       },
@@ -185,7 +184,6 @@ const makeNodeReplay = (context) => {
             nodeIds.push(nodeId);
           }
         } catch (error) {
-          // TODO Log this properly
           console.log('===> getAllNodeIds error', error);
         }
       },
@@ -218,6 +216,13 @@ const makeNodeReplay = (context) => {
 
   const addRequest = (nodeId, requestType, requestAfter, object) => {
     const storagePath = generateNodeReplayStoragePath(nodeId);
+
+    console.log(
+      '===> addRequest',
+      {
+        nodeId, requestType, requestAfter, object,
+      },
+    );
 
     return fetchNodeReplay(nodeId)
       .then((existingNodeReplay) => {
@@ -321,7 +326,6 @@ const makeNodeReplay = (context) => {
 
           requestDeletionPromises.push(persistNodeReplay(nodeId, updatedNodeReplay)
             .catch((error) => {
-              // TODO log error properly
               console.log('===> deletion promise error', { nodeId, object, error });
             }));
         }

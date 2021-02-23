@@ -126,16 +126,23 @@ const makeRequestHelper = (context) => {
     const nodeId = keys(requestQueue)[0];
     const nodeReplay = requestQueue[nodeId];
 
-    return Promise.mapSeries(nodeReplay.requests, (request) => objectModel.getObject(
-      request.objectType, request.objectId,
-    )
+    return Promise.mapSeries(nodeReplay.requests, (request) => (() => {
+      if (request.requestType === requestTypes.DELETE_OBJECT) {
+        return Promise.resolve({
+          id: request.objectId,
+          type: request.objectType,
+        });
+      }
+
+      return objectModel.getObject(
+        request.objectType, request.objectId,
+      );
+    })()
       .then((object) => sendRequest(nodeId, request.requestType, request.requestAfter, object)))
       .then(randomNodeReplayPicker)
       .then(({ nodeId: newNodeId, nodeReplay: newNodeReplay }) => {
-        if (newNodeId) {
-          console.log('===> all tasks are completed');
-          return undefined;
-        }
+        if (newNodeId) return undefined;
+
         requestQueue[newNodeId] = newNodeReplay;
         delete requestQueue[nodeId];
         return queueProcessor();
@@ -158,7 +165,10 @@ const makeRequestHelper = (context) => {
     })()
       .then((nodeReplay) => {
         requestQueue[selectedNodeId] = nodeReplay;
-        queueProcessor();
+        queueProcessor()
+          .catch((error) => {
+            console.log('===> error occured in queueProcessor', error);
+          });
       })
       .catch((error) => {
         console.log('===> error occured in initializeReplays', { error });

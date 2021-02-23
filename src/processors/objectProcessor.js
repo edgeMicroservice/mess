@@ -1,3 +1,5 @@
+const Promise = require('bluebird');
+
 const makeObjectModel = require('../models/objectModel');
 const makeNodeReplay = require('../models/nodeReplayModel');
 
@@ -81,9 +83,8 @@ const makeObjectProcessor = (context) => {
         throw new Error('Object can only be deleted at origin');
       }
 
-      return makeObjectModel(context).deleteObject(objectType, objectId)
-        .then(() => makeObjectPropagationHelper(context)
-          .notifyRemovedObjectDestinations(originalObject))
+      return makeObjectPropagationHelper(context)
+        .notifyRemovedObjectDestinations(originalObject)
         .then(() => originalObject);
     });
 

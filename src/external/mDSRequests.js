@@ -35,7 +35,10 @@ const makeMDSRequests = (context) => {
 
   const clusterDiscovery = (type, accessToken) => new Promise((resolve, reject) => {
     edge.clusterDiscovery(
-      type, accessToken, (nodes) => resolve(nodes), (err) => reject(err),
+      type,
+      accessToken,
+      (nodes) => { resolve(nodes); },
+      (err) => { reject(err); },
     );
   });
 
