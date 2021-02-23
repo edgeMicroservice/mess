@@ -217,13 +217,6 @@ const makeNodeReplay = (context) => {
   const addRequest = (nodeId, requestType, requestAfter, object) => {
     const storagePath = generateNodeReplayStoragePath(nodeId);
 
-    console.log(
-      '===> addRequest',
-      {
-        nodeId, requestType, requestAfter, object,
-      },
-    );
-
     return fetchNodeReplay(nodeId)
       .then((existingNodeReplay) => {
         const existingRequestsWithoutObject = [];

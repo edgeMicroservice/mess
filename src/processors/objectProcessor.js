@@ -17,6 +17,8 @@ const {
 } = require('../util/nodeReplayUtil');
 
 const makeObjectProcessor = (context) => {
+  const initializeReplays = () => makeRequestHelper(context).initializeReplays();
+
   const getObjectAndCheckIfActive = (objectType, objectId) => makeObjectModel(context)
     .getObject(objectType, objectId)
     .then((object) => {
@@ -35,41 +37,38 @@ const makeObjectProcessor = (context) => {
         .then(() => persistedObject));
   };
 
-  const readObjects = (objectType, destinationNodeId) => makeObjectModel(context)
-    .getAllObjects()
-    .then((objects) => {
-      const filteredObjects = objects.map(
-        (object) => {
-          if (objectType && object.type !== objectType) return false;
+  const readObjects = (objectType, destinationNodeId) => initializeReplays()
+    .then(() => makeObjectModel(context)
+      .getAllObjects()
+      .then((objects) => {
+        const filteredObjects = objects.map(
+          (object) => {
+            if (objectType && object.type !== objectType) return false;
 
-          if (!destinationNodeId) return object;
+            if (!destinationNodeId) return object;
 
-          const updatedObject = object;
-          const sameDestination = updatedObject.destinations.some((destination) => {
-            if (destination.nodeId === destinationNodeId) return true;
+            const updatedObject = object;
+            const sameDestination = updatedObject.destinations.some((destination) => {
+              if (destination.nodeId === destinationNodeId) return true;
 
-            return false;
-          });
-          return sameDestination ? updatedObject : false;
-        },
-      )
-        .filter((object) => !!object);
+              return false;
+            });
+            return sameDestination ? updatedObject : false;
+          },
+        )
+          .filter((object) => !!object);
 
-      return filteredObjects;
-    })
-    .then((objects) => {
-      makeRequestHelper(context).initializeReplays();
-      return objects;
-    });
+        return filteredObjects;
+      }));
 
-  const readObject = (objectType, objectId) => makeObjectModel(context)
-    .getObject(objectType, objectId)
-    .then((object) => {
-      if (!object) throw new Error('Object not found');
+  const readObject = (objectType, objectId) => initializeReplays()
+    .then(() => makeObjectModel(context)
+      .getObject(objectType, objectId)
+      .then((object) => {
+        if (!object) throw new Error('Object not found');
 
-      makeRequestHelper(context).initializeReplays();
-      return object;
-    });
+        return object;
+      }));
 
   const updateObject = (objectUpdate, updateInfo) => getObjectAndCheckIfActive(objectUpdate.type, objectUpdate.id)
     .then((originalObject) => makeObjectModel(context).updateObject(objectUpdate.type, objectUpdate.id, objectUpdate)
@@ -88,15 +87,12 @@ const makeObjectProcessor = (context) => {
         .then(() => originalObject);
     });
 
-  const readObjectData = (objectType, objectId) => getObjectAndCheckIfActive(objectType, objectId)
-    .then((object) => {
-      makeRequestHelper(context).initializeReplays();
-
-      return {
+  const readObjectData = (objectType, objectId) => initializeReplays()
+    .then(() => getObjectAndCheckIfActive(objectType, objectId)
+      .then((object) => ({
         path: generateObjectDataStoragePath(objectType, objectId),
         mimeType: object.mimeType,
-      };
-    });
+      })));
 
   const updateObjectData = (objectType, objectId, handleFormRequestFunc) => readObject(objectType, objectId)
     .then(() => {

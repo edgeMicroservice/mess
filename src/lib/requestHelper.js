@@ -6,10 +6,12 @@ const {
   map,
 } = require('lodash');
 
+const makeTokenSelector = require('./tokenSelector');
 const makeCommonHelper = require('./commonHelper');
 const makeObjectModel = require('../models/objectModel');
 const makeNodeReplayModel = require('../models/nodeReplayModel');
 const makeMESSRequests = require('../external/messRequests');
+const makeMDSRequests = require('../external/mDSRequests');
 
 const { requestTypes } = require('../util/nodeReplayUtil');
 
@@ -22,6 +24,12 @@ const makeRequestHelper = (context) => {
   const commonHelper = makeCommonHelper(context);
   const messRequests = makeMESSRequests(context);
   const nodeReplayModel = makeNodeReplayModel(context);
+
+  // Objective for this method is to cache cluster node list before response is returned as it causes service to crash otherwise
+  const cacheCluster = () => makeTokenSelector(context)
+    .selectUserToken()
+    .then((edgeAccessToken) => makeMDSRequests(context)
+      .findByAccount(edgeAccessToken));
 
   const markObjectReceived = (nodeId, object) => {
     const { destinations } = object;
@@ -150,19 +158,21 @@ const makeRequestHelper = (context) => {
   };
 
   const initializeReplays = (priorityNodeId) => {
+    // To check if already initialized
     if (keys(requestQueue) > 0) return Promise.resolve();
 
     let selectedNodeId = priorityNodeId;
 
-    return (() => {
-      if (priorityNodeId) return nodeReplayModel.getNodeReplay(priorityNodeId, undefined, false);
+    return cacheCluster()
+      .then(() => {
+        if (priorityNodeId) return nodeReplayModel.getNodeReplay(priorityNodeId, undefined, false);
 
-      return randomNodeReplayPicker()
-        .then(({ nodeId, nodeReplay }) => {
-          selectedNodeId = nodeId;
-          return nodeReplay;
-        });
-    })()
+        return randomNodeReplayPicker()
+          .then(({ nodeId, nodeReplay }) => {
+            selectedNodeId = nodeId;
+            return nodeReplay;
+          });
+      })
       .then((nodeReplay) => {
         requestQueue[selectedNodeId] = nodeReplay;
         queueProcessor()
@@ -175,38 +185,39 @@ const makeRequestHelper = (context) => {
       });
   };
 
-  const notifyMess = (nodeId, requestTypesToAdd, object) => commonHelper
-    .getCurrentContextDetails()
-    .then(({ currentNodeId }) => {
-      if (nodeId === currentNodeId) {
-        return Promise.map((requestTypesToAdd), (requestType) => {
-          if (requestType === requestTypes.DELETE_OBJECT) return markObjectDeleted(nodeId, object);
-          if (requestType === requestTypes.UPDATE_OBJECT_DATA) return markObjectReceived(nodeId, object);
+  const notifyMess = (nodeId, requestTypesToAdd, object) => cacheCluster()
+    .then(() => commonHelper
+      .getCurrentContextDetails()
+      .then(({ currentNodeId }) => {
+        if (nodeId === currentNodeId) {
+          return Promise.map((requestTypesToAdd), (requestType) => {
+            if (requestType === requestTypes.DELETE_OBJECT) return markObjectDeleted(nodeId, object);
+            if (requestType === requestTypes.UPDATE_OBJECT_DATA) return markObjectReceived(nodeId, object);
 
-          return Promise.resolve();
-        });
-      }
-
-      let requestTypesArr = [];
-
-      if (typeof requestTypesToAdd === 'string') requestTypesArr.push(requestTypesToAdd);
-      else if (Array.isArray(requestTypes)) requestTypesArr = requestTypesToAdd;
-      else throw new Error(`Uknown requestTypesToAdd passed to notifyMess: ${requestTypesToAdd}`);
-
-      return Promise.map(requestTypesArr, (requestType) => {
-        let requestAfter;
-        if (requestType === requestTypes.RECEIVAL_FAILED) {
-          requestAfter = new Date();
-          requestAfter.setSeconds(requestAfter.getSeconds() + RECEIVAL_FAILED_DELAY);
+            return Promise.resolve();
+          });
         }
 
-        return nodeReplayModel.addRequest(nodeId, requestType, requestAfter, object);
-      })
-        .then(() => { initializeReplays(nodeId); })
-        .catch((error) => {
-          console.log('===> error occured in notifyMess', error);
-        });
-    });
+        let requestTypesArr = [];
+
+        if (typeof requestTypesToAdd === 'string') requestTypesArr.push(requestTypesToAdd);
+        else if (Array.isArray(requestTypes)) requestTypesArr = requestTypesToAdd;
+        else throw new Error(`Uknown requestTypesToAdd passed to notifyMess: ${requestTypesToAdd}`);
+
+        return Promise.map(requestTypesArr, (requestType) => {
+          let requestAfter;
+          if (requestType === requestTypes.RECEIVAL_FAILED) {
+            requestAfter = new Date();
+            requestAfter.setSeconds(requestAfter.getSeconds() + RECEIVAL_FAILED_DELAY);
+          }
+
+          return nodeReplayModel.addRequest(nodeId, requestType, requestAfter, object);
+        })
+          .then(() => { initializeReplays(nodeId); })
+          .catch((error) => {
+            console.log('===> error occured in notifyMess', error);
+          });
+      }));
 
 
   return {
