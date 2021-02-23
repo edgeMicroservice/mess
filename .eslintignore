@@ -1,0 +1,3 @@
+# Ignore production folders
+build/*
+deploy/*

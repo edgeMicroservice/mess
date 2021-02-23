@@ -1,0 +1,17 @@
+{
+  "name": "mess-v1",
+  "image": "mess-v1",
+  "env": {
+    "MCM.BASE_API_PATH": "/mess/v1",
+    "MCM.WEBSOCKET_SUPPORT": "false",
+    "DATA_SYNC_URL": "--data-sync-url--",
+    "OAUTH_GENERIC_KEY": "--oauth-system-generic-public-key--",
+    "OAUTH_CLIENT_ID": "--oauth-client-id--",
+    "OAUTH_CLIENT_SECRET": "--oauth-client-secret--",
+    "SERVER_SECURITY_SET": "off",
+    "SESSION_SECURITY_AUTHORIZATION_SET": "off",
+    "MST_URL": "http://192.168.1.66:8025/mST/v1",
+    "CUSTOMER_CODE": "--customer-code--",
+    "SESSION_KEYS_MAP": "[{\"sessionId\": \"abcdegghijklmnop\",\"sessionSecret\": \"abcdegghijklmnopabcdegghijklmnop\",\"projectId\": \"common\"}]"
+  }
+}
