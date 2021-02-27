@@ -3,6 +3,7 @@ const Promise = require('bluebird');
 const makeRequestPromise = (context) => {
   const request = (options) => {
     const { http } = context;
+
     return new Promise((resolve, reject) => {
       const updatedOptions = {
         url: options.url,

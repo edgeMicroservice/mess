@@ -34,7 +34,7 @@ const readObject = (req, res) => {
   const { objectType, objectId } = swagger.params;
 
   makeObjectProcessor(context)
-    .readObjects(objectType, objectId)
+    .readObject(objectType, objectId)
     .then((data) => { response.sendResult({ data }, 200, res); })
     .catch((error) => { response.sendError(error, res, 400); });
 };
