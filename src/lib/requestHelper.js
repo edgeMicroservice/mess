@@ -1,13 +1,11 @@
 const Promise = require('bluebird');
 
-const {
-  keys,
-  floor,
-  random,
-  map,
-  every,
-  filter,
-} = require('lodash');
+const keys = require('lodash/keys');
+const floor = require('lodash/floor');
+const random = require('lodash/random');
+const map = require('lodash/map');
+const every = require('lodash/every');
+const filter = require('lodash/filter');
 
 const makeTokenSelector = require('./tokenSelector');
 const makeCommonHelper = require('./commonHelper');

@@ -1,5 +1,5 @@
 const Promise = require('bluebird');
-const { some } = require('lodash');
+const some = require('lodash/some');
 
 const makeRequestHelper = require('./requestHelper');
 const makeObjectCommonHelper = require('./commonHelper');

@@ -1,4 +1,5 @@
-const { merge, filter } = require('lodash');
+const merge = require('lodash/merge');
+const filter = require('lodash/filter');
 
 const { extractFromServiceType } = require('../util/serviceNameHelper');
 const { rpAuth, getEdgeServiceLinkByNodeId } = require('../lib/auth-helper');

@@ -1,8 +1,11 @@
 const Promise = require('bluebird');
 
-const {
-  map, find, keys, some, pickBy, identity,
-} = require('lodash');
+const map = require('lodash/map');
+const find = require('lodash/find');
+const keys = require('lodash/keys');
+const some = require('lodash/some');
+const pickBy = require('lodash/pickBy');
+const identity = require('lodash/identity');
 
 const makeObjectModel = require('../models/objectModel');
 const makeObjectCommonHelper = require('./commonHelper');
