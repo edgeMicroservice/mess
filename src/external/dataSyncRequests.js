@@ -22,6 +22,7 @@ const makeDataSyncRequests = (context) => {
     const data = {
       id: object.id,
       type: object.type,
+      version: object.version,
       dataOriginLink,
       dataDestinationLink: {
         url: `${EDGE_ENGINE_URL}/${projectClientId}${MESS_API_ENDPOINT}/objects/${object.id}/${object.type}/data`,
