@@ -16,9 +16,9 @@ const objectClusterUpdateTypes = {
   RECEIVAL_FAILED: 'receival_failed',
 };
 
-const generateObjectDataStoragePath = (objectType, objectId) => `objects/${objectType}/${objectId}/data`;
+const generateObjectDataStoragePath = (objectType, objectId) => `objects_${objectType}_${objectId}_data`;
 
-const generateObjectMetadataStoragePath = (objectType, objectId) => `objects/${objectType}/${objectId}/metadata`;
+const generateObjectMetadataStoragePath = (objectType, objectId) => `objects_${objectType}_${objectId}_metadata`;
 
 module.exports = {
   defaultMimeType,

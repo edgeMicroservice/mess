@@ -234,7 +234,7 @@ const makeObjectValidationHelper = (context) => {
             if (!foundDest) throw new Error('Node with id in receivalFailedBy cannot be found in destinations');
             return {
               updateType: objectClusterUpdateTypes.RECEIVAL_FAILED,
-              object: preppedObject,
+              objectUpdate: preppedObject,
             };
           }
 
@@ -245,7 +245,7 @@ const makeObjectValidationHelper = (context) => {
 
             return {
               updateType: objectClusterUpdateTypes.METADATA_UPDATED,
-              object: preppedObject,
+              objectUpdate: preppedObject,
             };
           }
 
@@ -256,7 +256,7 @@ const makeObjectValidationHelper = (context) => {
 
             return {
               updateType: objectClusterUpdateTypes.DATA_UPDATED,
-              object: preppedObject,
+              objectUpdate: preppedObject,
             };
           }
 

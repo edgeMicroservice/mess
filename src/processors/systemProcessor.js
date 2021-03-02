@@ -1,51 +1,50 @@
 const includes = require('lodash/includes');
 
+const makeRequestHelper = require('../lib/requestHelper');
+
 const { name, version } = require('../../package.json');
 
-function getDuktapeVersion() {
-  const ver = Duktape.version;
-  const major = Math.floor(ver / 10000);
-  const minor = Math.floor((ver - (major * 10000)) / 100);
-  const patch = ver - (major * 10000) - (minor * 100);
-  return `${major}.${minor}.${patch}`;
-}
+const makeSystemProcessor = (context) => {
+  const { runReplaysParallelly } = makeRequestHelper(context);
 
-function getPlatform() {
-  const dukEnv = Duktape.env;
-  if (includes(dukEnv, 'linux')) {
-    return 'Linux';
-  }
-  if (includes(dukEnv, 'osx')) {
-    return 'macOS';
-  }
+  const getDuktapeVersion = () => {
+    const ver = Duktape.version;
+    const major = Math.floor(ver / 10000);
+    const minor = Math.floor((ver - (major * 10000)) / 100);
+    const patch = ver - (major * 10000) - (minor * 100);
+    return `${major}.${minor}.${patch}`;
+  };
 
-  if (includes(dukEnv, 'iPhone')) {
-    return 'iPhone';
-  }
+  const getPlatform = () => {
+    const dukEnv = Duktape.env;
+    if (includes(dukEnv, 'linux')) return 'Linux';
 
-  if (includes(dukEnv, 'android')) {
-    return 'Android';
-  }
+    if (includes(dukEnv, 'osx')) return 'macOS';
 
-  if (includes(dukEnv, 'windows')) {
-    return 'Windows';
-  }
+    if (includes(dukEnv, 'iPhone')) return 'iPhone';
 
-  return 'Other';
-}
+    if (includes(dukEnv, 'android')) return 'Android';
 
-function getHealthCheckInfo(req) {
-  const json = {};
-  json.data = {};
-  json.data.type = name;
-  json.data.version = version;
-  json.data.swaggerInfo = req.swagger.info;
-  json.data.duktapeVersion = getDuktapeVersion();
-  json.data.platform = getPlatform();
+    if (includes(dukEnv, 'windows')) return 'Windows';
 
-  return json;
-}
+    return 'Other';
+  };
 
-module.exports = {
-  getHealthCheckInfo,
+  const getHealthCheck = (swaggerInfo) => runReplaysParallelly(() => {
+    const healthCheckInfo = {};
+    healthCheckInfo.type = name;
+    healthCheckInfo.version = version;
+    healthCheckInfo.swaggerInfo = swaggerInfo;
+    healthCheckInfo.duktapeVersion = getDuktapeVersion();
+    healthCheckInfo.platform = getPlatform();
+
+    return healthCheckInfo;
+  });
+
+
+  return {
+    getHealthCheck,
+  };
 };
+
+module.exports = makeSystemProcessor;

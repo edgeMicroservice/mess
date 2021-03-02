@@ -1,9 +1,12 @@
 const Promise = require('bluebird');
+
 const {
   keys,
   floor,
   random,
   map,
+  every,
+  filter,
 } = require('lodash');
 
 const makeTokenSelector = require('./tokenSelector');
@@ -17,7 +20,8 @@ const { requestTypes } = require('../util/nodeReplayUtil');
 
 const RECEIVAL_FAILED_DELAY = 300; // seconds
 
-const requestQueue = {};
+let isReplayRequested;
+const activeNodeReplays = {};
 
 const makeRequestHelper = (context) => {
   const objectModel = makeObjectModel(context);
@@ -41,7 +45,7 @@ const makeRequestHelper = (context) => {
       return updatedDest;
     });
 
-    return makeObjectModel(context).updateObject(object.type, object.id, { destinations: updatedDestinations });
+    return objectModel.updateObject(object.type, object.id, { destinations: updatedDestinations });
   };
 
   const markObjectDeleted = (nodeId, object) => {
@@ -54,20 +58,16 @@ const makeRequestHelper = (context) => {
       return updatedDest;
     });
 
-    return makeObjectModel(context).updateObject(object.type, object.id, { destinations: updatedDestinations });
+    return objectModel.updateObject(object.type, object.id, { destinations: updatedDestinations })
+      .then((updatedObject) => {
+        const areAllDestinationsDeleted = every(updatedObject.destinations, (dest) => !!dest.deletedAt);
+        if (!areAllDestinationsDeleted) return updatedObject;
+
+        return objectModel.deleteObject(object.type, object.id);
+      });
   };
 
-  const deleteRequestSuccessfully = (nodeId, requestType, object) => nodeReplayModel.deleteRequest(nodeId, requestType, object)
-    .then((response) => {
-      console.log('===> success received from cluster call', {
-        nodeId, requestType, object, response,
-      });
-    })
-    .catch((error) => {
-      console.log('===> error received while deleting object', {
-        nodeId, requestType, object, error,
-      });
-    });
+  const deleteRequestSuccessfully = (nodeId, requestType, object) => nodeReplayModel.deleteRequest(nodeId, requestType, object);
 
   const sendRequest = (nodeId, requestType, requestAfter, object) => {
     const requester = () => {
@@ -124,15 +124,17 @@ const makeRequestHelper = (context) => {
     .then((nodeIds) => {
       if (nodeIds.length < 1) return {};
 
-      const randomNodeId = nodeIds[floor(random() * nodeIds.length)];
+      const alreadyQueuedNodeIds = keys(activeNodeReplays);
+      const selectableNodeIds = filter(nodeIds, (nodeId) => !alreadyQueuedNodeIds.includes(nodeId));
+
+      const randomNodeId = selectableNodeIds[floor(random() * selectableNodeIds.length)];
 
       return nodeReplayModel.getNodeReplay(randomNodeId)
         .then((nodeReplay) => ({ nodeId: randomNodeId, nodeReplay }));
     });
 
-  const queueProcessor = () => {
-    const nodeId = keys(requestQueue)[0];
-    const nodeReplay = requestQueue[nodeId];
+  const replayProcessor = (nodeId) => {
+    const nodeReplay = activeNodeReplays[nodeId];
 
     return Promise.mapSeries(nodeReplay.requests, (request) => (() => {
       if (request.requestType === requestTypes.DELETE_OBJECT) {
@@ -142,28 +144,15 @@ const makeRequestHelper = (context) => {
         });
       }
 
-      return objectModel.getObject(
-        request.objectType, request.objectId,
-      );
+      return objectModel.getObject(request.objectType, request.objectId);
     })()
-      .then((object) => sendRequest(nodeId, request.requestType, request.requestAfter, object)))
-      .then(randomNodeReplayPicker)
-      .then(({ nodeId: newNodeId, nodeReplay: newNodeReplay }) => {
-        if (newNodeId) return undefined;
-
-        requestQueue[newNodeId] = newNodeReplay;
-        delete requestQueue[nodeId];
-        return queueProcessor();
-      });
+      .then((object) => sendRequest(nodeId, request.requestType, request.requestAfter, object)));
   };
 
   const initializeReplays = (priorityNodeId) => {
-    // To check if already initialized
-    if (keys(requestQueue) > 0) return Promise.resolve();
-
     let selectedNodeId = priorityNodeId;
 
-    return cacheCluster()
+    return Promise.resolve()
       .then(() => {
         if (priorityNodeId) return nodeReplayModel.getNodeReplay(priorityNodeId, undefined, false);
 
@@ -174,8 +163,10 @@ const makeRequestHelper = (context) => {
           });
       })
       .then((nodeReplay) => {
-        requestQueue[selectedNodeId] = nodeReplay;
-        queueProcessor()
+        if (!nodeReplay) return undefined;
+
+        activeNodeReplays[selectedNodeId] = nodeReplay;
+        return replayProcessor(selectedNodeId)
           .catch((error) => {
             console.log('===> error occured in queueProcessor', error);
           });
@@ -185,44 +176,51 @@ const makeRequestHelper = (context) => {
       });
   };
 
-  const notifyMess = (nodeId, requestTypesToAdd, object) => cacheCluster()
-    .then(() => commonHelper
-      .getCurrentContextDetails()
-      .then(({ currentNodeId }) => {
-        if (nodeId === currentNodeId) {
-          return Promise.map((requestTypesToAdd), (requestType) => {
-            if (requestType === requestTypes.DELETE_OBJECT) return markObjectDeleted(nodeId, object);
-            if (requestType === requestTypes.UPDATE_OBJECT_DATA) return markObjectReceived(nodeId, object);
+  const notifyMess = (nodeId, requestTypesToAdd, object) => commonHelper
+    .getCurrentContextDetails()
+    .then(({ currentNodeId }) => {
+      if (nodeId === currentNodeId) {
+        return Promise.map((requestTypesToAdd), (requestType) => {
+          if (requestType === requestTypes.DELETE_OBJECT) return markObjectDeleted(nodeId, object);
+          if (requestType === requestTypes.UPDATE_OBJECT_DATA) return markObjectReceived(nodeId, object);
 
-            return Promise.resolve();
-          });
+          return Promise.resolve();
+        });
+      }
+
+      let requestTypesArr = [];
+
+      if (typeof requestTypesToAdd === 'string') requestTypesArr.push(requestTypesToAdd);
+      else if (Array.isArray(requestTypes)) requestTypesArr = requestTypesToAdd;
+      else throw new Error(`Uknown requestTypesToAdd passed to notifyMess: ${requestTypesToAdd}`);
+
+      return Promise.map(requestTypesArr, (requestType) => {
+        let requestAfter;
+        if (requestType === requestTypes.RECEIVAL_FAILED) {
+          requestAfter = new Date();
+          requestAfter.setSeconds(requestAfter.getSeconds() + RECEIVAL_FAILED_DELAY);
         }
 
-        let requestTypesArr = [];
+        return nodeReplayModel.addRequest(nodeId, requestType, requestAfter, object);
+      })
+        .then(() => initializeReplays(nodeId))
+        .catch((error) => {
+          console.log('===> error occured in notifyMess', error);
+        });
+    });
 
-        if (typeof requestTypesToAdd === 'string') requestTypesArr.push(requestTypesToAdd);
-        else if (Array.isArray(requestTypes)) requestTypesArr = requestTypesToAdd;
-        else throw new Error(`Uknown requestTypesToAdd passed to notifyMess: ${requestTypesToAdd}`);
+  const runReplaysParallelly = (mainProcess) => {
+    const shouldRequestReplay = !isReplayRequested;
+    isReplayRequested = true;
 
-        return Promise.map(requestTypesArr, (requestType) => {
-          let requestAfter;
-          if (requestType === requestTypes.RECEIVAL_FAILED) {
-            requestAfter = new Date();
-            requestAfter.setSeconds(requestAfter.getSeconds() + RECEIVAL_FAILED_DELAY);
-          }
-
-          return nodeReplayModel.addRequest(nodeId, requestType, requestAfter, object);
-        })
-          .then(() => { initializeReplays(nodeId); })
-          .catch((error) => {
-            console.log('===> error occured in notifyMess', error);
-          });
-      }));
-
+    return cacheCluster()
+      .then(typeof mainProcess === 'function' ? mainProcess : () => mainProcess)
+      .finally(() => (shouldRequestReplay ? initializeReplays().catch(() => { }) : Promise.resolve()));
+  };
 
   return {
     notifyMess,
-    initializeReplays,
+    runReplaysParallelly,
   };
 };
 
