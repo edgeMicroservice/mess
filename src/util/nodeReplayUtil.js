@@ -1,4 +1,4 @@
-const { sortBy } = require('lodash');
+const sortBy = require('lodash/sortBy');
 
 const maximumRetries = 6;
 const minimumRetryDelay = 10; // seconds

@@ -1,9 +1,7 @@
 const Promise = require('bluebird');
 
-const {
-  isMatch,
-  takeWhile,
-} = require('lodash');
+const isMatch = require('lodash/isMatch');
+const takeWhile = require('lodash/takeWhile');
 
 const {
   generateObjectMetadataStoragePath,

@@ -1,5 +1,6 @@
 const Promise = require('bluebird');
-const { map, find } = require('lodash');
+const map = require('lodash/map');
+const find = require('lodash/find');
 
 const ADDRESS_TYPE = {
   PUBLIC: 'public',

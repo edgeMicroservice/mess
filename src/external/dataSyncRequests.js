@@ -15,13 +15,14 @@ const makeDataSyncRequests = (context) => {
     const { projectClientId } = extractFromServiceType(serviceType);
 
     const dataOriginLink = {
-      url: `${originMessLink.url}/objects/${object.type}/${object.id}`,
+      url: `${originMessLink.url}/objects/${object.type}/${object.id}/data`,
       method: 'GET',
     };
 
     const data = {
       id: object.id,
       type: object.type,
+      version: object.version,
       dataOriginLink,
       dataDestinationLink: {
         url: `${EDGE_ENGINE_URL}/${projectClientId}${MESS_API_ENDPOINT}/objects/${object.id}/${object.type}/data`,

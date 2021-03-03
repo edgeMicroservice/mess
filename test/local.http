@@ -1,0 +1,164 @@
+@host = http://localhost:8083
+@serviceName = mess
+@apiVersion = v1
+@serviceVersion = 1.0.0
+@tarName = {{serviceName}}-{{apiVersion}}-{{serviceVersion}}.tar
+
+@sidecarName = mess
+
+
+###
+HEAD {{host}}/mds/v1/nodes
+
+
+###
+# @name node
+GET {{host}}/mds/v1/nodes?ping=true
+
+
+###
+## @nodeId = {{node.response.body.$.data.id}}
+@nodeId = {{targetNodeId}}
+
+####
+# DEPLOYMENT STARTS
+####
+GET {{host}}/mcm/v1/images
+Authorization: Bearer {{edgeToken}}
+
+####
+GET {{host}}/mcm/v1/containers
+Authorization: Bearer {{edgeToken}}
+
+####
+GET {{host}}/mcm/v1/containers
+Authorization: Bearer {{edgeToken}}
+
+###
+POST {{host}}/mcm/v1/images
+Content-Type: multipart/form-data; boundary=$Boundary$
+Authorization: Bearer {{edgeToken}}
+
+--$Boundary$
+Content-Disposition: form-data; name="image"; filename="{{tarName}}"
+
+< ../deploy/{{tarName}}
+--$Boundary$--
+
+
+###
+# http://localhost:8083/cc616330-6906-4dd4-bcac-0fc145233d92/modelshare/v1/ess/events
+####
+# @name container
+POST {{host}}/mcm/v1/containers
+Authorization: Bearer {{edgeToken}}
+Content-Type: application/json
+
+{
+  "name": "{{sidecarName}}-{{apiVersion}}",
+  "image": "{{serviceName}}-{{apiVersion}}",
+  "env": {
+    "MCM.BASE_API_PATH": "/{{sidecarName}}/v1",
+    "MCM.WEBSOCKET_SUPPORT": "true",
+    "DATA_SYNC_URL": "http://localhost:8083/cc616330-6906-4dd4-bcac-0fc145233d92/mmodelshare/v1/ess/events",
+    "OAUTH_GENERIC_KEY": "--oauth-system-generic-public-key--",
+    "OAUTH_CLIENT_ID": "--oauth-client-id--",
+    "OAUTH_CLIENT_SECRET": "--oauth-client-secret--",
+    "SERVER_SECURITY_SET": "off",
+    "SESSION_SECURITY_AUTHORIZATION_SET": "off",
+    "MST_URL": "http://192.168.1.66:8025/mST/v1",
+    "CUSTOMER_CODE": "--customer-code--",
+    "SESSION_KEYS_MAP": "[{\"sessionId\": \"abcdegghijklmnop\",\"sessionSecret\": \"abcdegghijklmnopabcdegghijklmnop\",\"projectId\": \"common\"}]"
+  }
+}
+
+####
+@clientId = {{container.response.body.$.clientId}}
+
+####
+DELETE {{host}}/mcm/v1/containers/{{clientId}}-{{sidecarName}}-{{apiVersion}}
+Authorization: Bearer {{edgeToken}}
+
+####
+# DEPLOYMENT ENDS
+####
+
+####
+PUT {{host}}/{{clientId}}/mess/v1/clients
+Content-Type: application/json
+Authorization: Bearer {{edgeToken}}
+
+{
+  "status": "active"
+}
+
+
+####
+POST {{host}}/{{clientId}}/mess/v1/objects
+Content-Type: application/json
+Authorization: Bearer {{edgeToken}}
+
+{
+    "id": "img_reco.zip",
+    "type": "ml_model",
+    "version": "1.0.0",
+    "destinations": [
+        {
+            "nodeId": "{{nodeId}}"
+        }
+    ]
+}
+
+###
+GET {{host}}/{{clientId}}/mess/v1/objects
+Authorization: Bearer {{edgeToken}}
+
+###
+GET {{host}}/{{clientId}}/mess/v1/objects/ml_model/img_reco.zip
+Authorization: Bearer {{edgeToken}}
+
+
+###
+###
+# ws://localhost:8083/ws/cc616330-6906-4dd4-bcac-0fc145233d92/mess/v1
+###
+PUT {{host}}/{{clientId}}/mess/v1/objects/ml_model/img_reco.zip/data
+Content-Type: multipart/form-data; boundary=$Boundary$
+Authorization: Bearer {{edgeToken}}
+
+--$Boundary$
+Content-Disposition: form-data; name="file"; filename="mobilenet.zip"
+Content-Type: application/zip
+
+< ./ml_model/mobilenet.zip
+--$Boundary$--
+
+####
+GET {{host}}/{{clientId}}/mess/v1/objects/ml_model/img_reco.zip/data
+Authorization: Bearer {{edgeToken}}
+
+
+####
+PUT {{host}}/{{clientId}}/mess/v1/cluster/objects/ml_model/img_reco.zip
+Content-Type: application/json
+
+{
+  "method": "PUT",
+  "url": "/cluster/objects/ml_model/img_reco.zip",
+  "body": "{\"isDataUpdated\":true}",
+  "env": {
+    "CUSTOMER_CODE": "--customer-code--",
+    "DATA_SYNC_URL": "http://localhost:8084/cc616330-6906-4dd4-bcac-0fc145233d92/mmodelshare/v1/ess/events",
+    "MCM.BASE_API_PATH": "/cc616330-6906-4dd4-bcac-0fc145233d92/mess/v1",
+    "MCM.DB_ENCRYPTION_SUPPORT": "false",
+    "MCM.LINKLOCAL_REPLAY_NONCE_SUPPORT": "false",
+    "MCM.WEBSOCKET_SUPPORT": "true",
+    "MST_URL": "http://192.168.1.66:8025/mST/v1",
+    "OAUTH_CLIENT_ID": "--oauth-client-id--",
+    "OAUTH_CLIENT_SECRET": "--oauth-client-secret--",
+    "OAUTH_GENERIC_KEY": "--oauth-system-generic-public-key--",
+    "SERVER_SECURITY_SET": "off",
+    "SESSION_KEYS_MAP": "[{\"sessionId\": \"abcdegghijklmnop\",\"sessionSecret\": \"abcdegghijklmnopabcdegghijklmnop\",\"projectId\": \"common\"}]",
+    "SESSION_SECURITY_AUTHORIZATION_SET": "off"
+  }
+} 

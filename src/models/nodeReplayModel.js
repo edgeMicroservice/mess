@@ -1,10 +1,8 @@
 const Promise = require('bluebird');
 
-const {
-  map,
-  keys,
-  filter,
-} = require('lodash');
+const map = require('lodash/map');
+const keys = require('lodash/keys');
+const filter = require('lodash/filter');
 
 const {
   requestTypes,
