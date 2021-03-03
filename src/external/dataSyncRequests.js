@@ -15,7 +15,7 @@ const makeDataSyncRequests = (context) => {
     const { projectClientId } = extractFromServiceType(serviceType);
 
     const dataOriginLink = {
-      url: `${originMessLink.url}/objects/${object.type}/${object.id}`,
+      url: `${originMessLink.url}/objects/${object.type}/${object.id}/data`,
       method: 'GET',
     };
 
