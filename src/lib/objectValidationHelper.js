@@ -14,8 +14,8 @@ const {
   objectServiceRoles,
   defaultMimeType,
   objectClusterUpdateTypes,
-  maxiumumLabels,
-  maxiumumAttributes,
+  maximumLabels,
+  maximumAttributes,
   maximumTotalLabelsLength,
   maximumTotalAttributesLength,
 } = require('../util/objectUtil');
@@ -117,13 +117,13 @@ const makeObjectValidationHelper = (context) => {
 
     if (updatedObject.attributes) {
       updatedObject.attributes = validateAndFormatAttributesOrLabels(
-        updatedObject.attributes, 'attributes', maxiumumAttributes, maximumTotalAttributesLength,
+        updatedObject.attributes, 'attributes', maximumAttributes, maximumTotalAttributesLength,
       );
     }
 
     if (updatedObject.labels) {
       updatedObject.labels = validateAndFormatAttributesOrLabels(
-        updatedObject.labels, 'labels', maxiumumLabels, maximumTotalLabelsLength,
+        updatedObject.labels, 'labels', maximumLabels, maximumTotalLabelsLength,
       );
     }
 

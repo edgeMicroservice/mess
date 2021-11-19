@@ -1,6 +1,6 @@
 {
   "name": "mess",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "This microservice is used for content syncing between gateway and edge nodes",
   "author": "mimik technology inc <support@mimik.com> (https://developer.mimik.com/)",
   "license": "UNLICENSED",
