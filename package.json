@@ -1,6 +1,6 @@
 {
   "name": "mess",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "This microservice is used for content syncing between gateway and edge nodes",
   "author": "mimik technology inc <support@mimik.com> (https://developer.mimik.com/)",
   "license": "UNLICENSED",
@@ -38,7 +38,7 @@
     "router": "1.3.4"
   },
   "devDependencies": {
-    "swagger-mess": "bitbucket:mimiktech/swagger-mess#EDGEMS-332-create-mess-service",
+    "swagger-mess": "bitbucket:mimiktech/swagger-mess#v1.0.0",
     "@mimik/swagger-mw-codegen": "bitbucket:mimiktech/swagger-mw-codegen#3b38b36",
     "@mimik/edge-ms-packager": "^1.0.2",
     "@babel/core": "7.8.7",
