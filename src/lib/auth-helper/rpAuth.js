@@ -4,11 +4,13 @@ const keys = require('lodash/keys');
 const merge = require('lodash/merge');
 const keysIn = require('lodash/keysIn');
 
-const makeRequestPromise = require('./requestPromise');
-const makeSessionMap = require('./sessionMap');
-const { encrypt } = require('./encryptionHelper');
 const { SERVICE_CONSTANTS } = require('./common');
+
+const makeSessionMap = require('./sessionMap');
+const makeRequestPromise = require('./requestPromise');
+const { encrypt } = require('./encryptionHelper');
 const { debugLog, throwException } = require('../../util/logHelper');
+const { extractFromServiceType } = require('../../util/serviceNameHelper');
 
 const fetchTokenFromMST = (serviceType, context) => {
   const {
@@ -78,11 +80,20 @@ const rpAuth = (serviceObj, options, context, encryptRequest = true) => {
 
   return (() => {
     if (!updatedOptions.token && serviceType !== SERVICE_CONSTANTS.MCM && context.env.SERVER_SECURITY_SET === 'on') {
-      return fetchTokenFromMST(serviceType, context);
+      const { serviceType: currentServiceType } = context.info;
+      const { serviceName: currentServiceName } = extractFromServiceType(currentServiceType);
+
+      if (serviceType === currentServiceName) {
+        const { SERVER_API_KEYS } = context.env;
+        if (SERVER_API_KEYS !== '') return Promise.resolve({ apiKey: SERVER_API_KEYS });
+      }
+
+      return fetchTokenFromMST(serviceType, context)
+        .then((tokenResult) => ({ tokenResult }));
     }
     return Promise.resolve({});
   })()
-    .then((tokenResult) => {
+    .then(({ tokenResult = {}, apiKey }) => {
       if (tokenResult.error && context.env.SERVER_SECURITY_SET === 'on') {
         throwException(`cannot fetch mST token for serviceType: ${serviceType}`, {
           error: tokenResult.error.message,
@@ -92,10 +103,12 @@ const rpAuth = (serviceObj, options, context, encryptRequest = true) => {
       }
       if (tokenResult.token) updatedOptions.token = tokenResult.token;
 
+      if (apiKey) updatedOptions.headers = { apiKey, ...updatedOptions.headers = {} };
+
       if (context.env.SESSION_SECURITY_AUTHORIZATION_SET === 'off'
-          || !encryptRequest
-          || serviceType === SERVICE_CONSTANTS.MCM
-          || (options.headers && options.headers['x-mimik-routing'])) {
+        || !encryptRequest
+        || serviceType === SERVICE_CONSTANTS.MCM
+        || (options.headers && options.headers['x-mimik-routing'])) {
         if (serviceType !== SERVICE_CONSTANTS.MCM && tokenResult.error) {
           throwException(`cannot fetch mST token for serviceType: ${serviceType}`, {
             error: tokenResult.error.message,

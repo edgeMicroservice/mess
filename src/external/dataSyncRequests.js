@@ -8,7 +8,7 @@ const makeDataSyncRequests = (context) => {
   const MESS_API_ENDPOINT = '/mess/v1';
 
   const { request } = makeRequestPromise(context);
-  const { env: { DATA_SYNC_URL } } = context;
+  const { env: { MDEPLOYMENT_AGENT_URL } } = context;
 
   const syncData = (object, originMessLink) => {
     const { serviceType } = context.info;
@@ -33,7 +33,7 @@ const makeDataSyncRequests = (context) => {
       },
     };
 
-    if (DATA_SYNC_URL === 'ws://') {
+    if (MDEPLOYMENT_AGENT_URL === 'ws://') {
       const options = {};
       options.type = WEBSOCKET_REQUEST_TYPE;
       options.message = JSON.stringify(data);
@@ -42,7 +42,7 @@ const makeDataSyncRequests = (context) => {
     }
 
     const requestOpts = {
-      url: DATA_SYNC_URL,
+      url: MDEPLOYMENT_AGENT_URL,
       method: 'POST',
       data,
     };
