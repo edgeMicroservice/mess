@@ -26,7 +26,7 @@ const makeObjectPropagationHelper = (context) => {
 
   const notifyUpdatedMetadataObjectDestinations = (originalObject, updatedObject, updateInfo) => {
     if (!updateInfo.destinations) {
-      const { destinations } = updateInfo;
+      const { destinations } = originalObject;
       return Promise.map(destinations, (dest) => sendRequest(dest.nodeId, requestTypes.UPDATE_OBJECT_METADATA, updatedObject));
     }
 
