@@ -103,7 +103,7 @@ const rpAuth = (serviceObj, options, context, encryptRequest = true) => {
       }
       if (tokenResult.token) updatedOptions.token = tokenResult.token;
 
-      if (apiKey) updatedOptions.headers = { apiKey, ...updatedOptions.headers = {} };
+      if (apiKey) updatedOptions.headers = { ...updatedOptions.headers = {}, apiKey };
 
       if (context.env.SESSION_SECURITY_AUTHORIZATION_SET === 'off'
         || !encryptRequest
@@ -123,6 +123,7 @@ const rpAuth = (serviceObj, options, context, encryptRequest = true) => {
         const requestOptions = {
           url,
           type: updatedOptions.method,
+          headers: updatedOptions.headers,
         };
         if (updatedOptions.body) requestOptions.data = updatedOptions.body;
 
