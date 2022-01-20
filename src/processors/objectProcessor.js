@@ -83,7 +83,8 @@ const makeObjectProcessor = (context) => {
 
       return makeObjectPropagationHelper(context)
         .notifyRemovedObjectDestinations(originalObject)
-        .then(() => originalObject);
+        .then(() => objectModel.deleteObject(objectType, objectId)
+          .then(() => originalObject));
     }));
 
   const readObjectData = (objectType, objectId) => runReplaysParallelly(getObjectAndCheckIfActive(objectType, objectId)

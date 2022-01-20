@@ -8,7 +8,7 @@ const makeDataSyncRequests = (context) => {
   const MESS_API_ENDPOINT = '/mess/v1';
 
   const { request } = makeRequestPromise(context);
-  const { env: { MDEPLOYMENT_AGENT_URL } } = context;
+  const { env: { MDEPLOYMENT_AGENT_URL, SERVER_API_KEYS } } = context;
 
   const syncData = (object, originMessLink) => {
     const { serviceType } = context.info;
@@ -23,12 +23,15 @@ const makeDataSyncRequests = (context) => {
       id: object.id,
       type: object.type,
       version: object.version,
-      dataOriginLink,
-      dataDestinationLink: {
+      fileLink: dataOriginLink,
+      deploymentLink: {
         url: `${EDGE_ENGINE_URL}/${projectClientId}${MESS_API_ENDPOINT}/objects/${object.id}/${object.type}/data`,
         method: 'PUT',
         formData: {
           file: '--file-data-from-origin-link--',
+        },
+        headers: {
+          apiKey: SERVER_API_KEYS,
         },
       },
     };

@@ -178,7 +178,7 @@ const makeRequestHelper = (context) => {
     .getCurrentContextDetails()
     .then(({ currentNodeId }) => {
       if (nodeId === currentNodeId) {
-        return Promise.map((requestTypesToAdd), (requestType) => {
+        return Promise.map([requestTypesToAdd], (requestType) => {
           if (requestType === requestTypes.DELETE_OBJECT) return markObjectDeleted(nodeId, object);
           if (requestType === requestTypes.UPDATE_OBJECT_DATA) return markObjectReceived(nodeId, object);
 
@@ -187,10 +187,9 @@ const makeRequestHelper = (context) => {
       }
 
       let requestTypesArr = [];
-
       if (typeof requestTypesToAdd === 'string') requestTypesArr.push(requestTypesToAdd);
       else if (Array.isArray(requestTypes)) requestTypesArr = requestTypesToAdd;
-      else throw new Error(`Uknown requestTypesToAdd passed to notifyMess: ${requestTypesToAdd}`);
+      else throw new Error(`Unknown requestTypesToAdd passed to notifyMess: ${requestTypesToAdd}`);
 
       return Promise.map(requestTypesArr, (requestType) => {
         let requestAfter;
