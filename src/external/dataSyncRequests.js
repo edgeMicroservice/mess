@@ -18,7 +18,7 @@ const makeDataSyncRequests = (context) => {
       },
     };
 
-    return getEdgeServiceLinkByNodeId(object.originId, serviceType, accessToken, context)
+    return getEdgeServiceLinkByNodeId(context.info.nodeId, serviceType, accessToken, context)
       .then((localMessLink) => {
         const data = {
           id: object.id,
