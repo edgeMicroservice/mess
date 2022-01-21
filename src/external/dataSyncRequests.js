@@ -5,7 +5,7 @@ const WEBSOCKET_REQUEST_TYPE = 'data_sync';
 
 const makeDataSyncRequests = (context) => {
   const { request } = makeRequestPromise(context);
-  const { env: { MDEPLOYMENT_AGENT_URL, SERVER_API_KEYS } } = context;
+  const { env: { MDEPLOYMENT_AGENT_URL, MDEPLOYMENT_AGENT_API_KEY, SERVER_API_KEYS } } = context;
 
   const syncData = (object, originMessLink, accessToken) => {
     const { serviceType } = context.info;
@@ -49,6 +49,9 @@ const makeDataSyncRequests = (context) => {
           url: MDEPLOYMENT_AGENT_URL,
           method: 'POST',
           data,
+          headers: {
+            apiKey: MDEPLOYMENT_AGENT_API_KEY,
+          },
         };
 
         return request(requestOpts);
