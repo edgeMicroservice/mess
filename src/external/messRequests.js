@@ -71,6 +71,10 @@ const makeMESSRequests = (context) => {
       method: 'PUT',
       body: {
         version: object.version,
+        labels: object.labels,
+        attributes: object.attributes,
+        destinations: object.destinations,
+        mimeType: object.mimeType,
       },
     };
 
