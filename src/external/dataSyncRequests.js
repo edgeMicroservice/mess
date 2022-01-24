@@ -10,7 +10,7 @@ const makeDataSyncRequests = (context) => {
   const syncData = (object, originMessLink, accessToken) => {
     const { serviceType } = context.info;
 
-    const dataOriginLink = {
+    const originLink = {
       url: `${originMessLink.url}/objects/${object.type}/${object.id}/data`,
       method: 'GET',
       headers: {
@@ -21,18 +21,17 @@ const makeDataSyncRequests = (context) => {
     return getEdgeServiceLinkByNodeId(context.info.nodeId, serviceType, accessToken, context)
       .then((localMessLink) => {
         const data = {
-          id: object.id,
-          type: object.type,
-          version: object.version,
-          fileLink: dataOriginLink,
-          deploymentLink: {
+          originLink,
+          destinationLink: {
             url: `${localMessLink.url}/objects/${object.type}/${object.id}/data`,
             method: 'PUT',
-            formData: {
-              file: '--file-data-from-origin-link--',
-            },
             headers: {
               apiKey: SERVER_API_KEYS,
+            },
+            formData: {
+              file: '$file.stream',
+              attributes: JSON.stringify(object.attributes),
+              mimeType: object.mimeType,
             },
           },
         };
@@ -48,10 +47,10 @@ const makeDataSyncRequests = (context) => {
         const requestOpts = {
           url: MDEPLOYMENT_AGENT_URL,
           method: 'POST',
-          data,
           headers: {
             apiKey: MDEPLOYMENT_AGENT_API_KEY,
           },
+          data,
         };
 
         return request(requestOpts);

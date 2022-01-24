@@ -52,7 +52,10 @@ const makeObjectModel = (context) => {
     return fetchObject(storagePath)
       .then((object) => {
         if (!object) {
-          throw new Error(`No such file: ${storagePath}`);
+          const err = new Error();
+          err.message = `No such file: ${storagePath}`;
+          err.statusCode = 404;
+          throw err;
         }
 
         return object;
