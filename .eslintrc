@@ -4,7 +4,8 @@
     "mimikModule": true,
     "Duktape": true,
     "TextDecoder": true,
-    "TextEncoder": true
+    "TextEncoder": true,
+    "globalThis": true
   },
   "rules": {
     "max-len": ["error", { "code": 180 }],
