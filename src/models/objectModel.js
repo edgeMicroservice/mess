@@ -54,7 +54,7 @@ const makeObjectModel = (context) => {
         if (!object) {
           const err = new Error();
           err.message = `No such file: ${storagePath}`;
-          err.statusCode = 404;
+          err.name = 'NotFound';
           throw err;
         }
 

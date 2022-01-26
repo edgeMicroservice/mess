@@ -1,5 +1,5 @@
 const querystring = require('query-string');
-const { throwException, middlewareRequestLog, middlewareLoggedNext } = require('../../util/logHelper');
+const { getRichError, middlewareRequestLog, middlewareLoggedNext } = require('../../util/logHelper');
 
 const { decrypt } = require('./encryptionHelper');
 const makeSessionMap = require('./sessionMap');
@@ -16,18 +16,18 @@ const edgeSessionMiddleware = (req, res, next) => {
 
   if (queryParams && (queryParams.edgeSessionId || queryParams.edgeSessionInteraction)) {
     if (!(queryParams.edgeSessionId && queryParams.edgeSessionInteraction)) {
-      throwException('both edgeSessionId and edgeSessionInteraction are required in the query string to decrypt request');
+      throw getRichError('Parameter', 'both edgeSessionId and edgeSessionInteraction are required in the query string to decrypt request');
     }
 
     const keyMap = makeSessionMap(req.context).findBySessionId(queryParams.edgeSessionId);
-    if (!keyMap) throwException('cannot find edgeSessionId. might have been removed or expired');
+    if (!keyMap) throw getRichError('Parameter', 'cannot find edgeSessionId. might have been removed or expired');
     let options;
     try {
       options = JSON.parse(
         decrypt(queryParams.edgeSessionInteraction, keyMap.sessionId, keyMap.sessionSecret),
       );
     } catch (error) {
-      throwException('cannot decode edgeSessionInteraction param');
+      throw getRichError('System', 'cannot decode edgeSessionInteraction param');
     }
 
     if (options.qs) {

@@ -1,4 +1,4 @@
-const { includes } = require('lodash');
+const includes = require('lodash/includes');
 
 const { middlewareRequestLog, middlewareLoggedNext } = require('../util/logHelper');
 

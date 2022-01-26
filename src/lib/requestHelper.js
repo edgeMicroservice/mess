@@ -6,6 +6,7 @@ const random = require('lodash/random');
 const map = require('lodash/map');
 const every = require('lodash/every');
 const filter = require('lodash/filter');
+const includes = require('lodash/includes');
 
 const makeTokenSelector = require('./tokenSelector');
 const makeCommonHelper = require('./commonHelper');
@@ -85,6 +86,10 @@ const makeRequestHelper = (context) => {
 
         case requestTypes.DELETE_OBJECT:
           return messRequests.deleteObjectInCluster(nodeId, object)
+            .catch((err) => {
+              if (err.statusCode === 404) return undefined;
+              throw err;
+            })
             .then((response) => markObjectDeleted(nodeId, object)
               .then(() => response));
 
@@ -123,7 +128,7 @@ const makeRequestHelper = (context) => {
       if (nodeIds.length < 1) return {};
 
       const alreadyQueuedNodeIds = keys(activeNodeReplays);
-      const selectableNodeIds = filter(nodeIds, (nodeId) => !alreadyQueuedNodeIds.includes(nodeId));
+      const selectableNodeIds = filter(nodeIds, (nodeId) => !includes(alreadyQueuedNodeIds, nodeId));
 
       const randomNodeId = selectableNodeIds[floor(random() * selectableNodeIds.length)];
 
@@ -166,11 +171,11 @@ const makeRequestHelper = (context) => {
         activeNodeReplays[selectedNodeId] = nodeReplay;
         return replayProcessor(selectedNodeId)
           .catch((error) => {
-            console.log('===> error occured in queueProcessor', error);
+            console.log('===> error occured in queueProcessor', { error: error.toString() });
           });
       })
       .catch((error) => {
-        console.log('===> error occured in initializeReplays', { error });
+        console.log('===> error occured in initializeReplays', { error: error.toString() });
       });
   };
 

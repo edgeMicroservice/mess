@@ -1,7 +1,7 @@
 const Promise = require('bluebird');
 
 const makeClientModel = require('../models/clientModel');
-const { throwException } = require('../util/logHelper');
+const { getRichError } = require('../util/logHelper');
 const { ACTIVATION_TAG, DEACTIVATION_TAG } = require('../util/clientUtil');
 
 const makeClientProcessor = (context) => {
@@ -9,7 +9,7 @@ const makeClientProcessor = (context) => {
     if (status === ACTIVATION_TAG && (!context.security || !context.security.token)) {
       return Promise.resolve()
         .then(() => {
-          throwException('Cannot use endpoint for setting status="active" without edgeAccessToken in the headers');
+          throw getRichError('Parameter', 'Cannot use endpoint for setting status="active" without edgeAccessToken in the headers');
         });
     }
 

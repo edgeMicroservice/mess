@@ -36,7 +36,7 @@ const readObject = (req, res) => {
   makeObjectProcessor(context)
     .readObject(objectType, objectId)
     .then((data) => { response.sendResult({ data }, 200, res); })
-    .catch((error) => { response.sendError(error, res, 400); });
+    .catch((error) => { response.sendError(error, res); });
 };
 
 const updateObject = (req, res) => {
@@ -60,7 +60,7 @@ const deleteObject = (req, res) => {
   makeObjectProcessor(context)
     .deleteObject(objectType, objectId)
     .then((data) => { response.sendResult({ data }, 200, res); })
-    .catch((error) => { response.sendError(error, res, 400); });
+    .catch((error) => { response.sendError(error, res); });
 };
 
 const readObjectData = (req, res) => {
