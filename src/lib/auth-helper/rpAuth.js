@@ -86,7 +86,8 @@ const rpAuth = (serviceObj, options, context, encryptRequest = true) => {
 
         if (serviceType === currentServiceName) {
           const { SERVER_API_KEYS } = context.env;
-          if (SERVER_API_KEYS !== '') return { apiKey: SERVER_API_KEYS };
+          const messAPIKey = SERVER_API_KEYS.split(',')[0].trim();
+          if (SERVER_API_KEYS !== '') return { apiKey: messAPIKey };
         }
 
         return fetchTokenFromMST(serviceType, context)

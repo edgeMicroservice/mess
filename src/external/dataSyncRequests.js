@@ -9,12 +9,13 @@ const makeDataSyncRequests = (context) => {
 
   const syncData = (object, originMessLink, accessToken) => {
     const { serviceType } = context.info;
+    const messAPIKey = SERVER_API_KEYS.split(',')[0].trim();
 
     const originLink = {
       url: `${originMessLink.url}/objects/${object.type}/${object.id}/data`,
       method: 'GET',
       headers: {
-        apiKey: SERVER_API_KEYS,
+        apiKey: messAPIKey,
       },
     };
 
@@ -26,7 +27,7 @@ const makeDataSyncRequests = (context) => {
             url: `${localMessLink.url}/objects/${object.type}/${object.id}/data`,
             method: 'PUT',
             headers: {
-              apiKey: SERVER_API_KEYS,
+              apiKey: messAPIKey,
             },
             formData: {
               file: '$file.stream',

@@ -22,7 +22,7 @@ const SecurityHandler = (req, definition, scopes, next) => {
   };
 
   if (providedKey && providedKey !== '') {
-    if (includes(SERVER_API_KEYS.split(','), providedKey)) {
+    if (includes(SERVER_API_KEYS.split(',').map((key) => key.trim()), providedKey)) {
       req.context.security = {
         type: handlerName,
       };
