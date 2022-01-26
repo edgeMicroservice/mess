@@ -12,6 +12,7 @@ const {
   generateNodeReplayStoragePath,
   extractNodeIdFromStoragePath,
 } = require('../util/nodeReplayUtil');
+const { debugLog } = require('../util/logHelper');
 
 const MODEL_NAME = 'requests';
 
@@ -155,7 +156,7 @@ const makeNodeReplay = (context) => {
           const nodeId = extractNodeIdFromStoragePath(key);
           nodeReplaysMap[nodeId] = formatNodeReplay(nodeReplay);
         } catch (error) {
-          console.log('===> getAllNodeReplays error', error);
+          debugLog('getAllNodeReplays error', { error });
         }
       },
     );
@@ -183,7 +184,7 @@ const makeNodeReplay = (context) => {
             nodeIds.push(nodeId);
           }
         } catch (error) {
-          console.log('===> getAllNodeIds error', error);
+          debugLog('getAllNodeIds error', { error });
         }
       },
     );
@@ -330,7 +331,7 @@ const makeNodeReplay = (context) => {
 
           requestDeletionPromises.push(persistNodeReplay(nodeId, updatedNodeReplay)
             .catch((error) => {
-              console.log('===> deletion promise error', { nodeId, object, error });
+              debugLog('deletion promise error', { nodeId, object, error });
             }));
         }
       });

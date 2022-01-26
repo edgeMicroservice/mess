@@ -16,6 +16,7 @@ const makeMESSRequests = require('../external/messRequests');
 const makeMDSRequests = require('../external/mDSRequests');
 
 const { requestTypes } = require('../util/nodeReplayUtil');
+const { debugLog } = require('../util/logHelper');
 
 const RECEIVAL_FAILED_DELAY = 300; // seconds
 
@@ -114,7 +115,7 @@ const makeRequestHelper = (context) => {
           && (floor(statusCode / 100) === 5 || statusCode === 429)) {
           return nodeReplayModel.markNodeFailedRetry(nodeId)
             .catch((retryError) => {
-              console.log('===> error while marking retry failed', { error: retryError });
+              debugLog('error while marking retry failed', { error: retryError });
             })
             .then(() => { throw error; });
         }
@@ -142,7 +143,7 @@ const makeRequestHelper = (context) => {
     if (status === 'inProcess') return Promise.resolve();
     return nodeReplayModel.updateNodeStatus(nodeId, 'inProcess')
       .catch((err) => {
-        console.log('===> error occured in setting status', { error: err.toString() });
+        debugLog('error occured in setting status', { error: err.toString() });
         throw err;
       })
       .then(() => Promise.mapSeries(nodeReplay.requests, (request) => (() => {
@@ -177,11 +178,11 @@ const makeRequestHelper = (context) => {
         activeNodeReplays[selectedNodeId] = nodeReplay;
         return replayProcessor(selectedNodeId)
           .catch((error) => {
-            console.log('===> error occured in queueProcessor', { error: error.toString() });
+            debugLog('error occured in queueProcessor', { error: error.toString() });
           });
       })
       .catch((error) => {
-        console.log('===> error occured in initializeReplays', { error: error.toString() });
+        debugLog('error occured in initializeReplays', { error: error.toString() });
       });
   };
 
@@ -213,7 +214,7 @@ const makeRequestHelper = (context) => {
       })
         .then(() => initializeReplays(nodeId))
         .catch((error) => {
-          console.log('===> error occured in notifyMess', error);
+          debugLog('error occured in notifyMess', { error });
         });
     });
 
