@@ -138,18 +138,24 @@ const makeRequestHelper = (context) => {
 
   const replayProcessor = (nodeId) => {
     const nodeReplay = activeNodeReplays[nodeId];
+    const { status } = nodeReplay;
+    if (status === 'inProcess') return Promise.resolve();
+    return nodeReplayModel.updateNodeStatus(nodeId, 'inProcess')
+      .catch((err) => {
+        console.log('===> error occured in setting status', { error: err.toString() });
+        throw err;
+      })
+      .then(() => Promise.mapSeries(nodeReplay.requests, (request) => (() => {
+        if (request.requestType === requestTypes.DELETE_OBJECT) {
+          return Promise.resolve({
+            id: request.objectId,
+            type: request.objectType,
+          });
+        }
 
-    return Promise.mapSeries(nodeReplay.requests, (request) => (() => {
-      if (request.requestType === requestTypes.DELETE_OBJECT) {
-        return Promise.resolve({
-          id: request.objectId,
-          type: request.objectType,
-        });
-      }
-
-      return objectModel.getObject(request.objectType, request.objectId);
-    })()
-      .then((object) => sendRequest(nodeId, request.requestType, request.requestAfter, object)));
+        return objectModel.getObject(request.objectType, request.objectId);
+      })()
+        .then((object) => sendRequest(nodeId, request.requestType, request.requestAfter, object))));
   };
 
   const initializeReplays = (priorityNodeId) => {

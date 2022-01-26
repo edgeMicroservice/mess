@@ -22,7 +22,7 @@ const MODEL_NAME = 'requests';
   nodeId/request = {
     requests: [
       {
-        requestType: update_metadata,
+        requestType: 'update_metadata',
         requestAfter: new Date(),
         objectId,
         objectType,
@@ -33,6 +33,7 @@ const MODEL_NAME = 'requests';
       retryAfter: new Date(),
       lastSuccessAt: new Date()
     },
+    status: 'inProcess',
   }
 */
 
@@ -190,6 +191,18 @@ const makeNodeReplay = (context) => {
     return Promise.resolve(nodeIds);
   };
 
+  const updateNodeStatus = (nodeId, status) => {
+    const storagePath = generateNodeReplayStoragePath(nodeId);
+
+    return fetchNodeReplay(storagePath)
+      .then((existingNodeReplay) => {
+        const updatedNodeReplay = existingNodeReplay;
+        updatedNodeReplay.status = status;
+
+        return persistNodeReplay(storagePath, updatedNodeReplay);
+      });
+  };
+
   const markNodeFailedRetry = (nodeId) => {
     const storagePath = generateNodeReplayStoragePath(nodeId);
 
@@ -329,6 +342,7 @@ const makeNodeReplay = (context) => {
   return {
     getNodeReplay,
     getAllNodeIds,
+    updateNodeStatus,
     markNodeFailedRetry,
     addRequest,
     deleteRequest,

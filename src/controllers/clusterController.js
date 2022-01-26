@@ -35,7 +35,7 @@ const deleteObjectInCluster = (req, res) => {
   makeClusterProcessor(context)
     .deleteObjectInCluster(objectType, objectId)
     .then((data) => { response.sendResult({ data }, 200, res); })
-    .catch((error) => { response.sendError(error, res, 400); });
+    .catch((error) => { response.sendError(error, res); });
 };
 
 module.exports = {

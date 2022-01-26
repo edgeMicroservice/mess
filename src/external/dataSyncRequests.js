@@ -30,8 +30,6 @@ const makeDataSyncRequests = (context) => {
             },
             formData: {
               file: '$file.stream',
-              attributes: JSON.stringify(object.attributes),
-              mimeType: object.mimeType,
             },
           },
         };
