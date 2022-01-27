@@ -1,17 +1,17 @@
 const find = require('lodash/find');
 
 const { extractFromServiceType } = require('../../util/serviceNameHelper');
-const { throwException } = require('../../util/logHelper');
+const { getRichError } = require('../../util/logHelper');
 
 const makeSessionMap = (context) => {
   let SESSION_KEYS_MAP;
   try {
     SESSION_KEYS_MAP = JSON.parse(context.env.SESSION_KEYS_MAP);
   } catch (error) {
-    throwException('Cannot parse SESSION_KEYS_MAP env string to JSON');
+    throw getRichError('System', 'Cannot parse SESSION_KEYS_MAP env string to JSON');
   }
-  if (!SESSION_KEYS_MAP) throwException('SESSION_KEYS_MAP env not assigned');
-  if (!Array.isArray(SESSION_KEYS_MAP)) throwException('SESSION_KEYS_MAP env is not an array');
+  if (!SESSION_KEYS_MAP) throw getRichError('System', 'SESSION_KEYS_MAP env not assigned');
+  if (!Array.isArray(SESSION_KEYS_MAP)) throw getRichError('System', 'SESSION_KEYS_MAP env is not an array');
 
   const { projectClientId } = extractFromServiceType(context.info.serviceType);
 

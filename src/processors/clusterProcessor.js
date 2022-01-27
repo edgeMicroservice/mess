@@ -39,7 +39,7 @@ const makeClusterProcessor = (context) => {
               .then((accessToken) => {
                 const { serviceType } = context.info;
                 return getEdgeServiceLinkByNodeId(object.originId, serviceType, accessToken, context)
-                  .then((originMessLink) => makeDataSyncRequests(context).syncData(object, originMessLink));
+                  .then((originMessLink) => makeDataSyncRequests(context).syncData(object, originMessLink, accessToken));
               }),
           ]);
 

@@ -149,31 +149,7 @@ const makeObjectValidationHelper = (context) => {
         }));
   };
 
-  const validateAndPopulateObjectUpdate = (objectType, objectId, updateInfo) => Promise.resolve()
-    .then(() => {
-      const formattedUpdateInfo = validateAndFormatCommon(updateInfo);
-
-      return makeObjectModel(context).getObject(objectType, objectId)
-        .then((currentObject) => getCurrentContextDetails()
-          .then(({ accountId, currentNodeId }) => {
-            if (currentObject.originId !== currentNodeId) throw new Error('Requested update(s) can only be made on originId nodeId');
-
-            const updatedObject = { ...currentObject, ...formattedUpdateInfo };
-            updatedObject.updatedAt = new Date();
-
-            if (!formattedUpdateInfo.destinations) return updatedObject;
-
-            return fetchNodes(context)
-              .then((nodes) => {
-                updatedObject.destinations = validateAndFormatDestinations(
-                  accountId, nodes, updatedObject.destinations,
-                );
-                return updatedObject;
-              });
-          }));
-    });
-
-  const validateAndPopulateObjectUpdateInCluster = (objectType, objectId, updateInfos) => Promise.resolve()
+  const validateAndFormatObjectUpdateData = (updateInfo, isCluster) => Promise.resolve()
     .then(() => {
       const isDataUpdatedAdditionalPropertiesError = 'Cannot declare other properties while updating isDataUpdated';
       const receivalFailedByAdditionalPropertiesError = 'Cannot declare other properties while updating receivalFailedBy';
@@ -183,23 +159,19 @@ const makeObjectValidationHelper = (context) => {
 
       const errors = [];
 
-      const formattedUpdateInfo = validateAndFormatCommon(updateInfos);
+      const formattedUpdateInfo = validateAndFormatCommon(updateInfo);
 
       const {
         receivalFailedBy,
         isDataUpdated,
         destinations,
-        version,
-        mimeType,
-        labels,
-        attributes,
       } = formattedUpdateInfo;
 
       const totalUpdateInfoProps = keys(formattedUpdateInfo).length;
 
       if (totalUpdateInfoProps < 1) errors.push('No property is requested to be updated');
-      if (isDataUpdated && totalUpdateInfoProps > 1) errors.push(isDataUpdatedAdditionalPropertiesError);
-      if (receivalFailedBy && totalUpdateInfoProps > 1) errors.push(receivalFailedByAdditionalPropertiesError);
+      if (isCluster && isDataUpdated && totalUpdateInfoProps > 1) errors.push(isDataUpdatedAdditionalPropertiesError);
+      if (isCluster && receivalFailedBy && totalUpdateInfoProps > 1) errors.push(receivalFailedByAdditionalPropertiesError);
 
       if (destinations) {
         if (destinations.length < 1) errors.push(minimumDestinationsError);
@@ -213,59 +185,82 @@ const makeObjectValidationHelper = (context) => {
       }
 
       if (errors.length > 1) throw new Error(`Update request cannot be validated: ${errors.join(', ')}`);
-
-      return makeObjectModel(context).getObject(objectType, objectId)
-        .then((currentObject) => {
-          const preppedObject = { ...currentObject, ...formattedUpdateInfo };
-          preppedObject.updatedAt = new Date();
-
-          if (receivalFailedBy) {
-            if (preppedObject.serviceRole !== objectServiceRoles.ORIGIN) {
-              throw new Error('receivalFailedBy update can only be made at origin mess');
-            }
-
-            let foundDest = false;
-            preppedObject.destinations = map(preppedObject.destinations, (destination) => {
-              if (destination.nodeId !== receivalFailedBy) return destination;
-
-              foundDest = true;
-              const updatedDest = destination;
-              updatedDest.receivedAt = undefined;
-              return updatedDest;
-            });
-
-            if (!foundDest) throw new Error('Node with id in receivalFailedBy cannot be found in destinations');
-            return {
-              updateType: objectClusterUpdateTypes.RECEIVAL_FAILED,
-              objectUpdate: preppedObject,
-            };
-          }
-
-          if (version || destinations || mimeType || labels || attributes) {
-            if (preppedObject.serviceRole !== objectServiceRoles.ORIGIN) {
-              throw new Error('"version", "destinations", "mimeType", "labels" and "attributes" updates can only be made at origin mess');
-            }
-
-            return {
-              updateType: objectClusterUpdateTypes.METADATA_UPDATED,
-              objectUpdate: preppedObject,
-            };
-          }
-
-          if (isDataUpdated) {
-            if (preppedObject.serviceRole !== objectServiceRoles.DESTINATION) {
-              throw new Error('isDataUpdated update can only be made at destination mess');
-            }
-
-            return {
-              updateType: objectClusterUpdateTypes.DATA_UPDATED,
-              objectUpdate: preppedObject,
-            };
-          }
-
-          return undefined;
-        });
+      return Promise.resolve(formattedUpdateInfo);
     });
+
+  const validateAndPopulateObjectUpdate = (objectType, objectId, updateInfo) => validateAndFormatObjectUpdateData(updateInfo)
+    .then((formattedUpdateInfo) => makeObjectModel(context).getObject(objectType, objectId)
+      .then((currentObject) => getCurrentContextDetails()
+        .then(({ accountId, currentNodeId }) => {
+          if (currentObject.originId !== currentNodeId) throw new Error('Requested update(s) can only be made on originId nodeId');
+
+          const updatedObject = { ...currentObject, ...formattedUpdateInfo };
+          updatedObject.updatedAt = new Date();
+
+          if (!formattedUpdateInfo.destinations) return updatedObject;
+
+          return fetchNodes(context)
+            .then((nodes) => {
+              updatedObject.destinations = validateAndFormatDestinations(
+                accountId, nodes, updatedObject.destinations,
+              );
+              return updatedObject;
+            });
+        })));
+
+  const validateAndPopulateObjectUpdateInCluster = (objectType, objectId, updateInfo) => validateAndFormatObjectUpdateData(updateInfo, true)
+    .then((formattedUpdateInfo) => makeObjectModel(context).getObject(objectType, objectId)
+      .then((currentObject) => {
+        const preppedObject = { ...currentObject, ...formattedUpdateInfo };
+        preppedObject.updatedAt = new Date();
+
+        const {
+          version, destinations, mimeType, labels, attributes,
+          isDataUpdated, receivalFailedBy,
+        } = formattedUpdateInfo;
+
+        if (receivalFailedBy) {
+          if (preppedObject.serviceRole !== objectServiceRoles.ORIGIN) {
+            throw new Error('receivalFailedBy update can only be made at origin mess');
+          }
+
+          let foundDest = false;
+          preppedObject.destinations = map(preppedObject.destinations, (destination) => {
+            if (destination.nodeId !== receivalFailedBy) return destination;
+
+            foundDest = true;
+            const updatedDest = destination;
+            updatedDest.receivedAt = undefined;
+            return updatedDest;
+          });
+
+          if (!foundDest) throw new Error('Node with id in receivalFailedBy cannot be found in destinations');
+          return {
+            updateType: objectClusterUpdateTypes.RECEIVAL_FAILED,
+            objectUpdate: preppedObject,
+          };
+        }
+
+        if (isDataUpdated) {
+          if (preppedObject.serviceRole !== objectServiceRoles.DESTINATION) {
+            throw new Error('isDataUpdated update can only be made at destination mess');
+          }
+
+          return {
+            updateType: objectClusterUpdateTypes.DATA_UPDATED,
+            objectUpdate: preppedObject,
+          };
+        }
+
+        if (version || destinations || mimeType || labels || attributes) {
+          return {
+            updateType: objectClusterUpdateTypes.METADATA_UPDATED,
+            objectUpdate: preppedObject,
+          };
+        }
+
+        return undefined;
+      }));
 
   return {
     validateAndPopulateNewObject,

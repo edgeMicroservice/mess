@@ -4,7 +4,7 @@ api:
   controllerPath: ../src/controllers
   outputPath: ./build
   securityHandlerPath: ../src/securityHandlers
-  swagger: node_modules/swagger-mess/mess-api-swagger.yml
+  swagger: node_modules/swagger-mess/swagger.yml
   
 package:
   imageName: mess

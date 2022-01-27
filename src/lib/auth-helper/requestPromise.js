@@ -32,7 +32,7 @@ const makeRequestPromise = (context) => {
       }
 
       if (options.headers) {
-        updatedOptions.headers = JSON.stringify(options.headers);
+        updatedOptions.headers = options.headers;
       }
 
       http.request(updatedOptions);

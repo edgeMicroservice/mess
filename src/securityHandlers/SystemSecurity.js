@@ -1,4 +1,4 @@
-// const jwt = require('jsonwebtoken');
+const jwt = require('jsonwebtoken');
 const find = require('lodash/find');
 
 const { extractToken } = require('@mimik/edge-ms-helper/authorization-helper');
@@ -6,11 +6,11 @@ const { extractToken } = require('@mimik/edge-ms-helper/authorization-helper');
 const { decodePayload } = require('../util/jwtHelper');
 const { middlewareRequestLog, middlewareLoggedNext } = require('../util/logHelper');
 
-const handlerName = 'System Security';
+const handlerName = 'SystemSecurity';
 
 const SecurityHandler = (req, definition, scopes, next) => {
   const {
-    // OAUTH_GENERIC_KEY,
+    OAUTH_GENERIC_KEY,
     SERVER_SECURITY_SET,
   } = req.context.env;
   middlewareRequestLog(handlerName, req);
@@ -38,7 +38,7 @@ const SecurityHandler = (req, definition, scopes, next) => {
       const token = extractToken(req.authorization);
       const payload = decodePayload(token);
 
-      // jwt.verify(token, OAUTH_GENERIC_KEY);
+      jwt.verify(token, OAUTH_GENERIC_KEY);
       validateScopes(scopes, payload);
 
       req.context.security = {

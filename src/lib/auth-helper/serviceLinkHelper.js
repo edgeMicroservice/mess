@@ -25,7 +25,7 @@ const getEdgeServiceLinkByNodeId = (nodeId, serviceType, edgeAccessToken, ctx) =
     const proxyAddress = find(
       targetNode.addresses, (address) => address.type === ADDRESS_TYPE.PROXY,
     );
-    if (!proxyAddress) throw new Error(`cannot found proxy address for target node: ${nodeId}`);
+    if (!proxyAddress) throw new Error(`cannot find proxy address for target node: ${nodeId}`);
     const routingHeader = Base64.btoa(JSON.stringify({
       nodeId: targetNode.id,
       localLinkNetworkId: targetNode.localLinkNetworkId,

@@ -1,53 +1,59 @@
 const makeRequestPromise = require('../lib/auth-helper/requestPromise');
-const { extractFromServiceType } = require('../util/serviceNameHelper');
+const { getEdgeServiceLinkByNodeId } = require('../lib/auth-helper');
 
 const WEBSOCKET_REQUEST_TYPE = 'data_sync';
 
 const makeDataSyncRequests = (context) => {
-  const EDGE_ENGINE_URL = `http://localhost:${context.info.httpPort}`;
-  const MESS_API_ENDPOINT = '/mess/v1';
-
   const { request } = makeRequestPromise(context);
-  const { env: { DATA_SYNC_URL } } = context;
+  const { env: { MDEPLOYMENT_AGENT_URL, MDEPLOYMENT_AGENT_API_KEY, SERVER_API_KEYS } } = context;
 
-  const syncData = (object, originMessLink) => {
+  const syncData = (object, originMessLink, accessToken) => {
     const { serviceType } = context.info;
-    const { projectClientId } = extractFromServiceType(serviceType);
+    const messAPIKey = SERVER_API_KEYS.split(',')[0].trim();
 
-    const dataOriginLink = {
+    const originLink = {
       url: `${originMessLink.url}/objects/${object.type}/${object.id}/data`,
       method: 'GET',
-    };
-
-    const data = {
-      id: object.id,
-      type: object.type,
-      version: object.version,
-      dataOriginLink,
-      dataDestinationLink: {
-        url: `${EDGE_ENGINE_URL}/${projectClientId}${MESS_API_ENDPOINT}/objects/${object.id}/${object.type}/data`,
-        method: 'PUT',
-        formData: {
-          file: '--file-data-from-origin-link--',
-        },
+      headers: {
+        apiKey: messAPIKey,
       },
     };
 
-    if (DATA_SYNC_URL === 'ws://') {
-      const options = {};
-      options.type = WEBSOCKET_REQUEST_TYPE;
-      options.message = JSON.stringify(data);
-      context.dispatchWebSocketEvent(options);
-      return Promise.resolve();
-    }
+    return getEdgeServiceLinkByNodeId(context.info.nodeId, serviceType, accessToken, context)
+      .then((localMessLink) => {
+        const data = {
+          originLink,
+          destinationLink: {
+            url: `${localMessLink.url}/objects/${object.type}/${object.id}/data`,
+            method: 'PUT',
+            headers: {
+              apiKey: messAPIKey,
+            },
+            formData: {
+              file: '$file.stream',
+            },
+          },
+        };
 
-    const requestOpts = {
-      url: DATA_SYNC_URL,
-      method: 'POST',
-      data,
-    };
+        if (MDEPLOYMENT_AGENT_URL === 'ws://') {
+          const options = {};
+          options.type = WEBSOCKET_REQUEST_TYPE;
+          options.message = JSON.stringify(data);
+          context.dispatchWebSocketEvent(options);
+          return Promise.resolve();
+        }
 
-    return request(requestOpts);
+        const requestOpts = {
+          url: MDEPLOYMENT_AGENT_URL,
+          method: 'POST',
+          headers: {
+            apiKey: MDEPLOYMENT_AGENT_API_KEY,
+          },
+          data,
+        };
+
+        return request(requestOpts);
+      });
   };
 
   return {

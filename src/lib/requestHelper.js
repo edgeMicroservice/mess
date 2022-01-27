@@ -6,6 +6,7 @@ const random = require('lodash/random');
 const map = require('lodash/map');
 const every = require('lodash/every');
 const filter = require('lodash/filter');
+const includes = require('lodash/includes');
 
 const makeTokenSelector = require('./tokenSelector');
 const makeCommonHelper = require('./commonHelper');
@@ -15,6 +16,7 @@ const makeMESSRequests = require('../external/messRequests');
 const makeMDSRequests = require('../external/mDSRequests');
 
 const { requestTypes } = require('../util/nodeReplayUtil');
+const { debugLog } = require('../util/logHelper');
 
 const RECEIVAL_FAILED_DELAY = 300; // seconds
 
@@ -85,6 +87,10 @@ const makeRequestHelper = (context) => {
 
         case requestTypes.DELETE_OBJECT:
           return messRequests.deleteObjectInCluster(nodeId, object)
+            .catch((err) => {
+              if (err.statusCode === 404) return undefined;
+              throw err;
+            })
             .then((response) => markObjectDeleted(nodeId, object)
               .then(() => response));
 
@@ -109,7 +115,7 @@ const makeRequestHelper = (context) => {
           && (floor(statusCode / 100) === 5 || statusCode === 429)) {
           return nodeReplayModel.markNodeFailedRetry(nodeId)
             .catch((retryError) => {
-              console.log('===> error while marking retry failed', { error: retryError });
+              debugLog('error while marking retry failed', { error: retryError });
             })
             .then(() => { throw error; });
         }
@@ -123,7 +129,7 @@ const makeRequestHelper = (context) => {
       if (nodeIds.length < 1) return {};
 
       const alreadyQueuedNodeIds = keys(activeNodeReplays);
-      const selectableNodeIds = filter(nodeIds, (nodeId) => !alreadyQueuedNodeIds.includes(nodeId));
+      const selectableNodeIds = filter(nodeIds, (nodeId) => !includes(alreadyQueuedNodeIds, nodeId));
 
       const randomNodeId = selectableNodeIds[floor(random() * selectableNodeIds.length)];
 
@@ -133,18 +139,24 @@ const makeRequestHelper = (context) => {
 
   const replayProcessor = (nodeId) => {
     const nodeReplay = activeNodeReplays[nodeId];
+    const { status } = nodeReplay;
+    if (status === 'inProcess') return Promise.resolve();
+    return nodeReplayModel.updateNodeStatus(nodeId, 'inProcess')
+      .catch((err) => {
+        debugLog('error occured in setting status', { error: err.toString() });
+        throw err;
+      })
+      .then(() => Promise.mapSeries(nodeReplay.requests, (request) => (() => {
+        if (request.requestType === requestTypes.DELETE_OBJECT) {
+          return Promise.resolve({
+            id: request.objectId,
+            type: request.objectType,
+          });
+        }
 
-    return Promise.mapSeries(nodeReplay.requests, (request) => (() => {
-      if (request.requestType === requestTypes.DELETE_OBJECT) {
-        return Promise.resolve({
-          id: request.objectId,
-          type: request.objectType,
-        });
-      }
-
-      return objectModel.getObject(request.objectType, request.objectId);
-    })()
-      .then((object) => sendRequest(nodeId, request.requestType, request.requestAfter, object)));
+        return objectModel.getObject(request.objectType, request.objectId);
+      })()
+        .then((object) => sendRequest(nodeId, request.requestType, request.requestAfter, object))));
   };
 
   const initializeReplays = (priorityNodeId) => {
@@ -166,11 +178,11 @@ const makeRequestHelper = (context) => {
         activeNodeReplays[selectedNodeId] = nodeReplay;
         return replayProcessor(selectedNodeId)
           .catch((error) => {
-            console.log('===> error occured in queueProcessor', error);
+            debugLog('error occured in queueProcessor', { error: error.toString() });
           });
       })
       .catch((error) => {
-        console.log('===> error occured in initializeReplays', { error });
+        debugLog('error occured in initializeReplays', { error: error.toString() });
       });
   };
 
@@ -178,7 +190,7 @@ const makeRequestHelper = (context) => {
     .getCurrentContextDetails()
     .then(({ currentNodeId }) => {
       if (nodeId === currentNodeId) {
-        return Promise.map((requestTypesToAdd), (requestType) => {
+        return Promise.map([requestTypesToAdd], (requestType) => {
           if (requestType === requestTypes.DELETE_OBJECT) return markObjectDeleted(nodeId, object);
           if (requestType === requestTypes.UPDATE_OBJECT_DATA) return markObjectReceived(nodeId, object);
 
@@ -187,10 +199,9 @@ const makeRequestHelper = (context) => {
       }
 
       let requestTypesArr = [];
-
       if (typeof requestTypesToAdd === 'string') requestTypesArr.push(requestTypesToAdd);
       else if (Array.isArray(requestTypes)) requestTypesArr = requestTypesToAdd;
-      else throw new Error(`Uknown requestTypesToAdd passed to notifyMess: ${requestTypesToAdd}`);
+      else throw new Error(`Unknown requestTypesToAdd passed to notifyMess: ${requestTypesToAdd}`);
 
       return Promise.map(requestTypesArr, (requestType) => {
         let requestAfter;
@@ -203,7 +214,7 @@ const makeRequestHelper = (context) => {
       })
         .then(() => initializeReplays(nodeId))
         .catch((error) => {
-          console.log('===> error occured in notifyMess', error);
+          debugLog('error occured in notifyMess', { error });
         });
     });
 

@@ -1,6 +1,6 @@
 const crypto = require('crypto-browserify');
 
-const { throwException } = require('../../util/logHelper');
+const { getRichError } = require('../../util/logHelper');
 
 const ENCODING_FORMAT = 'utf8';
 const ENCRYPTION_STANDARD = 'aes-256-cbc';
@@ -15,9 +15,8 @@ const encrypt = (text, keyId, keySecret) => {
     encrypted = Buffer.concat([encrypted, cipher.final()]);
     return encrypted.toString('hex');
   } catch (error) {
-    throwException('Error occured while encryting edgeSessionInteraction', error);
+    throw getRichError('System', 'Error occured while encrypting edgeSessionInteraction', error);
   }
-  return null;
 };
 
 const decrypt = (text, keyId, keySecret) => {

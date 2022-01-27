@@ -1,3 +1,5 @@
+globalThis.setTimeout = (fn) => setImmediate(fn);
+
 const { init } = require('@mimik/edge-ms-helper/init-helper');
 
 const swaggerMiddleware = require('../build/mess-swagger-mw');

@@ -12,6 +12,7 @@ const {
   generateNodeReplayStoragePath,
   extractNodeIdFromStoragePath,
 } = require('../util/nodeReplayUtil');
+const { debugLog } = require('../util/logHelper');
 
 const MODEL_NAME = 'requests';
 
@@ -22,7 +23,7 @@ const MODEL_NAME = 'requests';
   nodeId/request = {
     requests: [
       {
-        requestType: update_metadata,
+        requestType: 'update_metadata',
         requestAfter: new Date(),
         objectId,
         objectType,
@@ -33,6 +34,7 @@ const MODEL_NAME = 'requests';
       retryAfter: new Date(),
       lastSuccessAt: new Date()
     },
+    status: 'inProcess',
   }
 */
 
@@ -154,7 +156,7 @@ const makeNodeReplay = (context) => {
           const nodeId = extractNodeIdFromStoragePath(key);
           nodeReplaysMap[nodeId] = formatNodeReplay(nodeReplay);
         } catch (error) {
-          console.log('===> getAllNodeReplays error', error);
+          debugLog('getAllNodeReplays error', { error });
         }
       },
     );
@@ -182,12 +184,24 @@ const makeNodeReplay = (context) => {
             nodeIds.push(nodeId);
           }
         } catch (error) {
-          console.log('===> getAllNodeIds error', error);
+          debugLog('getAllNodeIds error', { error });
         }
       },
     );
 
     return Promise.resolve(nodeIds);
+  };
+
+  const updateNodeStatus = (nodeId, status) => {
+    const storagePath = generateNodeReplayStoragePath(nodeId);
+
+    return fetchNodeReplay(storagePath)
+      .then((existingNodeReplay) => {
+        const updatedNodeReplay = existingNodeReplay;
+        updatedNodeReplay.status = status;
+
+        return persistNodeReplay(storagePath, updatedNodeReplay);
+      });
   };
 
   const markNodeFailedRetry = (nodeId) => {
@@ -317,7 +331,7 @@ const makeNodeReplay = (context) => {
 
           requestDeletionPromises.push(persistNodeReplay(nodeId, updatedNodeReplay)
             .catch((error) => {
-              console.log('===> deletion promise error', { nodeId, object, error });
+              debugLog('deletion promise error', { nodeId, object, error });
             }));
         }
       });
@@ -329,6 +343,7 @@ const makeNodeReplay = (context) => {
   return {
     getNodeReplay,
     getAllNodeIds,
+    updateNodeStatus,
     markNodeFailedRetry,
     addRequest,
     deleteRequest,

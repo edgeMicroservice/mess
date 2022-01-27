@@ -2,7 +2,7 @@ const { extractToken } = require('@mimik/edge-ms-helper/authorization-helper');
 const { decodePayload } = require('../util/jwtHelper');
 const { middlewareRequestLog, middlewareLoggedNext } = require('../util/logHelper');
 
-const handlerName = 'User Security';
+const handlerName = 'UserSecurity';
 
 const SecurityHandler = (req, definition, scopes, next) => {
   const {

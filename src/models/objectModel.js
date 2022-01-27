@@ -7,6 +7,7 @@ const {
   generateObjectMetadataStoragePath,
   generateObjectDataStoragePath,
 } = require('../util/objectUtil');
+const { debugLog } = require('../util/logHelper');
 
 const MODEL_NAME = 'object';
 
@@ -52,7 +53,10 @@ const makeObjectModel = (context) => {
     return fetchObject(storagePath)
       .then((object) => {
         if (!object) {
-          throw new Error(`No such file: ${storagePath}`);
+          const err = new Error();
+          err.message = `No such file: ${storagePath}`;
+          err.name = 'NotFound';
+          throw err;
         }
 
         return object;
@@ -96,8 +100,7 @@ const makeObjectModel = (context) => {
           const object = JSON.parse(value);
           objectList.push(object);
         } catch (error) {
-          // TODO Log this properly
-          console.log('===> getAllObjects error', error);
+          debugLog('getAllObjects error', { error });
         }
       },
     );

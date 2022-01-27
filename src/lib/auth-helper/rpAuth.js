@@ -4,11 +4,13 @@ const keys = require('lodash/keys');
 const merge = require('lodash/merge');
 const keysIn = require('lodash/keysIn');
 
-const makeRequestPromise = require('./requestPromise');
-const makeSessionMap = require('./sessionMap');
-const { encrypt } = require('./encryptionHelper');
 const { SERVICE_CONSTANTS } = require('./common');
-const { debugLog, throwException } = require('../../util/logHelper');
+
+const makeSessionMap = require('./sessionMap');
+const makeRequestPromise = require('./requestPromise');
+const { encrypt } = require('./encryptionHelper');
+const { debugLog, getRichError } = require('../../util/logHelper');
+const { extractFromServiceType } = require('../../util/serviceNameHelper');
 
 const fetchTokenFromMST = (serviceType, context) => {
   const {
@@ -76,15 +78,26 @@ const rpAuth = (serviceObj, options, context, encryptRequest = true) => {
 
   const updatedOptions = options;
 
-  return (() => {
-    if (!updatedOptions.token && serviceType !== SERVICE_CONSTANTS.MCM && context.env.SERVER_SECURITY_SET === 'on') {
-      return fetchTokenFromMST(serviceType, context);
-    }
-    return Promise.resolve({});
-  })()
-    .then((tokenResult) => {
+  return Promise.resolve()
+    .then(() => {
+      if (!updatedOptions.token && serviceType !== SERVICE_CONSTANTS.MCM && context.env.SERVER_SECURITY_SET === 'on') {
+        const { serviceType: currentServiceType } = context.info;
+        const { serviceName: currentServiceName } = extractFromServiceType(currentServiceType);
+
+        if (serviceType === currentServiceName) {
+          const { SERVER_API_KEYS } = context.env;
+          const messAPIKey = SERVER_API_KEYS.split(',')[0].trim();
+          if (SERVER_API_KEYS !== '') return { apiKey: messAPIKey };
+        }
+
+        return fetchTokenFromMST(serviceType, context)
+          .then((tokenResult) => ({ tokenResult }));
+      }
+      return {};
+    })
+    .then(({ tokenResult = {}, apiKey }) => {
       if (tokenResult.error && context.env.SERVER_SECURITY_SET === 'on') {
-        throwException(`cannot fetch mST token for serviceType: ${serviceType}`, {
+        throw getRichError('System', `cannot fetch mST token for serviceType: ${serviceType}`, {
           error: tokenResult.error.message,
           SERVER_SECURITY_SET: context.env.SERVER_SECURITY_SET,
           SESSION_SECURITY_AUTHORIZATION_SET: context.env.SESSION_SECURITY_AUTHORIZATION_SET,
@@ -92,12 +105,14 @@ const rpAuth = (serviceObj, options, context, encryptRequest = true) => {
       }
       if (tokenResult.token) updatedOptions.token = tokenResult.token;
 
+      if (apiKey) updatedOptions.headers = { apiKey, ...updatedOptions.headers = {} };
+
       if (context.env.SESSION_SECURITY_AUTHORIZATION_SET === 'off'
-          || !encryptRequest
-          || serviceType === SERVICE_CONSTANTS.MCM
-          || (options.headers && options.headers['x-mimik-routing'])) {
+        || !encryptRequest
+        || serviceType === SERVICE_CONSTANTS.MCM
+        || (options.headers && options.headers['x-mimik-routing'])) {
         if (serviceType !== SERVICE_CONSTANTS.MCM && tokenResult.error) {
-          throwException(`cannot fetch mST token for serviceType: ${serviceType}`, {
+          throw getRichError('System', `cannot fetch mST token for serviceType: ${serviceType}`, {
             error: tokenResult.error.message,
             SERVER_SECURITY_SET: context.env.SERVER_SECURITY_SET,
             SESSION_SECURITY_AUTHORIZATION_SET: context.env.SESSION_SECURITY_AUTHORIZATION_SET,
@@ -131,7 +146,7 @@ const rpAuth = (serviceObj, options, context, encryptRequest = true) => {
       }
 
       const keyMap = makeSessionMap(context).findByProject(projectId);
-      if (!keyMap) throwException(projectId ? `could not find session key for projectId: ${projectId}` : 'could not find session key for current project');
+      if (!keyMap) throw getRichError('Parameter', projectId ? `could not find session key for projectId: ${projectId}` : 'could not find session key for current project');
 
       let url = updatedOptions.url || updatedOptions.uri;
       if (url.includes('?')) {
@@ -156,12 +171,12 @@ const rpAuth = (serviceObj, options, context, encryptRequest = true) => {
       });
     })
     .catch((error) => {
-      if (!requestSent) throwException('Sending request failed', error);
-      throwException('Failure response received', error);
+      if (!requestSent) throw getRichError('System', 'Sending request failed', null, error);
+      throw getRichError(error?.statusCode, 'Failure response received', null, error);
     })
     .then((data) => {
       // For JsonRPC
-      if (data && data.error) throwException('Failure response received', { error: data.error });
+      if (data && data.error) throw getRichError(data?.error?.statusCode || 'System', 'Failure response received', null, { error: data.error });
       debugLog('Success response received', data);
       return data;
     });
