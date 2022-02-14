@@ -88,7 +88,7 @@ const makeRequestHelper = (context) => {
         case requestTypes.DELETE_OBJECT:
           return messRequests.deleteObjectInCluster(nodeId, object)
             .catch((err) => {
-              if (err.statusCode === 404) return undefined;
+              if (err.statusCode === 404 || err.code === 404) return undefined;
               throw err;
             })
             .then((response) => markObjectDeleted(nodeId, object)
