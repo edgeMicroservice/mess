@@ -4,8 +4,8 @@
   "env": {
     "MCM.BASE_API_PATH": "/mess/v1",
     "MCM.WEBSOCKET_SUPPORT": "false",
-    "MDEPLOYMENT_AGENT_URL": "--mdeployment-agent-url--",
-    "MDEPLOYMENT_AGENT_API_KEY": "--mdeployment-agent-api-key--",
+    "MDEPLOYMENTAGENT_URL": "--mdeployment-agent-url--",
+    "MDEPLOYMENTAGENT_KEY": "--mdeployment-agent-api-key--",
     "OAUTH_GENERIC_KEY": "--oauth-system-generic-public-key--",
     "OAUTH_CLIENT_ID": "--oauth-client-id--",
     "OAUTH_CLIENT_SECRET": "--oauth-client-secret--",

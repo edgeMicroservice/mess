@@ -34,7 +34,7 @@ const makeClusterProcessor = (context) => {
 
         case objectClusterUpdateTypes.DATA_UPDATED:
           return Promise.all([
-            makeRequestHelper(context).notifyMess(object.originId, requestTypes.RECEIVAL_FAILED, object),
+            makeRequestHelper(context).notifyMess(object.originId, requestTypes.UPDATE_OBJECT_DATA, object),
             makeTokenSelector(context).selectUserToken()
               .then((accessToken) => {
                 const { serviceType } = context.info;
@@ -44,7 +44,7 @@ const makeClusterProcessor = (context) => {
           ]);
 
         case objectClusterUpdateTypes.RECEIVAL_FAILED:
-          return makeRequestHelper(context).notifyMess(receivalFailedBy, requestTypes.UPDATE_OBJECT_DATA, object);
+          return makeRequestHelper(context).notifyMess(receivalFailedBy, requestTypes.RECEIVAL_FAILED, object);
 
         default:
           throw new Error(`Unexpected update type found on cluster object: ${JSON.stringify({ updateType, objectUpdate })}`);
