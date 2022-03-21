@@ -1,7 +1,7 @@
 const Promise = require('bluebird');
 
 const makeClientModel = require('../models/clientModel');
-const { getRichError } = require('../util/logHelper');
+const { getRichError, throwException } = require('../util/logHelper');
 const { ACTIVATION_TAG, DEACTIVATION_TAG } = require('../util/clientUtil');
 
 const makeClientProcessor = (context) => {
@@ -16,6 +16,10 @@ const makeClientProcessor = (context) => {
     if (status === ACTIVATION_TAG) {
       const { jwt, payload } = context.security.token;
       const expiresAt = payload.exp * 1000; // Compare to Date.now() needs milliseconds.
+
+      if (context.info.nodeId !== payload.node_id) {
+        return throwException('Incorrect token: wrong nodeId');
+      }
 
       return makeClientModel(context)
         .saveClientToken(jwt, expiresAt)
