@@ -1,5 +1,3 @@
-const Promise = require('bluebird');
-
 const makeObjectModel = require('../models/objectModel');
 const makeNodeReplay = require('../models/nodeReplayModel');
 
@@ -70,7 +68,7 @@ const makeObjectProcessor = (context) => {
     }));
 
   const updateObject = (objectUpdate, updateInfo) => runReplaysParallelly(getObjectAndCheckIfActive(objectUpdate.type, objectUpdate.id)
-    .then((originalObject) => objectModel.updateObject(objectUpdate.type, objectUpdate.id, objectUpdate)
+    .then((originalObject) => objectModel.updateObject(objectUpdate.type, objectUpdate.id, { ...objectUpdate, updatedAt: new Date() })
       .then((updatedObject) => makeObjectPropagationHelper(context)
         .notifyUpdatedMetadataObjectDestinations(originalObject, updatedObject, updateInfo)
         .then(() => updatedObject))));
@@ -145,7 +143,7 @@ const makeObjectProcessor = (context) => {
           .notifyUpdatedDataObjectDestinations(object);
       })()
         .then(() => {
-          if (!metadataUpdateInfo) return Promise.resolve(object);
+          if (!metadataUpdateInfo) return objectModel.updateObject(objectType, objectId, { updatedAt: new Date() });
 
           return makeObjectValidationHelper(context)
             .validateAndPopulateObjectUpdate(objectType, objectId, metadataUpdateInfo)

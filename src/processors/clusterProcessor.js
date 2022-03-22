@@ -30,7 +30,7 @@ const makeClusterProcessor = (context) => {
     .then((object) => {
       switch (updateType) {
         case objectClusterUpdateTypes.METADATA_UPDATED:
-          return objectModel.updateObject(objectUpdate.type, objectUpdate.id, objectUpdate);
+          return objectModel.updateObject(objectUpdate.type, objectUpdate.id, { ...objectUpdate, updatedAt: new Date() });
 
         case objectClusterUpdateTypes.DATA_UPDATED:
           return Promise.all([

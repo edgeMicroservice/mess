@@ -52,9 +52,7 @@ const getEdgeServiceLinkByNodeId = (nodeId, serviceType, edgeAccessToken, ctx) =
       serviceAddress = srvcAdd;
     }
     const nodeUrl = updatedLink.url;
-    updatedLink.url = ((nodeUrl.substr(nodeUrl.length - 1, nodeUrl.length) === '/')
-      || (serviceAddress.substr(0, 1) === '/'))
-      ? `${nodeUrl}${serviceAddress}` : `${nodeUrl}/${serviceAddress}`;
+    updatedLink.url = nodeUrl.substr(nodeUrl.length - 1, nodeUrl.length) === '/' ? `${nodeUrl.substr(0, nodeUrl.length - 1)}${serviceAddress}` : `${nodeUrl}${serviceAddress}`;
     return updatedLink;
   };
 
